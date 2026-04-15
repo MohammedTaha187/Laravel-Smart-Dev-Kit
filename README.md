@@ -64,11 +64,11 @@ php artisan smart:crud Product \
 
 ## 🛠️ Step-by-Step Installation
 
-### 1. Initial Setup
-```bash
-git clone <repo-url> my-project && cd my-project
-composer install
-```
+### 1. **Clone & Install**:
+   ```bash
+   git clone https://github.com/MohammedTaha187/Laravel-Smart-Dev-Kit.git my-project && cd my-project
+   composer install
+   ```
 
 ### 2. Environment Configuration
 ```bash

@@ -44,7 +44,7 @@ The heart of this engine is a custom **`smart:crud`** command that handles all t
 
 ### **The Power Command:**
 ```bash
-php artisan smart:crud Product \
+./vendor/bin/sail artisan smart:crud Product \
   --api \
   --with-service \
   --with-data \
@@ -53,6 +53,17 @@ php artisan smart:crud Product \
   --with-media \
   --module=Ecommerce
 ```
+
+### 📂 Files Generated (One-shot)
+When you run the command with the flags above, the engine builds **11 professional files** for you:
+- **Model** & **Migration** (with Translatable & Tenant traits).
+- **Controller** (Clean API logic).
+- **Service** & **Repository** (Strict separation of concerns).
+- **Service & Repository Interfaces** (Contracts for DI).
+- **Spatie Data Object** (The Type-safe DTO).
+- **Form Request** & **API Resource**.
+- **Policy** (Security & Permissions).
+- **Feature Test** (Ready-to-run Pest tests).
 
 ### ✨ Architectural Generation:
 - **`--module=X`**: Nests files directly into a specific domain module.

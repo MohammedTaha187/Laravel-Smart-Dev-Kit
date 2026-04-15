@@ -32,28 +32,37 @@ class DBAnalyzer
      */
     public function identifyRelationships(string $table): array
     {
-        $foreignKeys = $this->getForeignKeys($table);
-        $relationships = [];
+        $relationships = [
+            'belongsTo' => [],
+            'hasMany' => [],
+        ];
 
-        foreach ($foreignKeys as $fk) {
+        // 1. BelongsTo (Direct Foreign Keys)
+        foreach ($this->getForeignKeys($table) as $fk) {
             $foreignTable = $fk['foreign_table'];
-            $foreignColumn = $fk['foreign_columns'][0];
-            $localColumn = $fk['columns'][0];
-
-            $modelName = Str::studly(Str::singular($foreignTable));
-            $methodName = Str::camel(Str::singular($foreignTable));
-
             $relationships['belongsTo'][] = [
-                'method' => $methodName,
-                'model' => $modelName,
-                'foreign_key' => $localColumn,
-                'owner_key' => $foreignColumn,
+                'method' => Str::camel(Str::singular($foreignTable)),
+                'model' => Str::studly(Str::singular($foreignTable)),
+                'foreign_key' => $fk['columns'][0],
+                'owner_key' => $fk['foreign_columns'][0],
             ];
         }
 
-        // Check if this is a pivot table
-        if ($this->isPivotTable($table)) {
-            // Logic for ManyToMany
+        // 2. HasMany (Check which tables reference this table)
+        foreach ($this->getTables() as $otherTableData) {
+            $otherTable = $otherTableData['name'];
+            if ($otherTable === $table) continue;
+
+            foreach ($this->getForeignKeys($otherTable) as $fk) {
+                if ($fk['foreign_table'] === $table) {
+                    $relationships['hasMany'][] = [
+                        'method' => Str::camel(Str::plural($otherTable)),
+                        'model' => Str::studly(Str::singular($otherTable)),
+                        'foreign_key' => $fk['columns'][0],
+                        'local_key' => $fk['foreign_columns'][0],
+                    ];
+                }
+            }
         }
 
         return $relationships;

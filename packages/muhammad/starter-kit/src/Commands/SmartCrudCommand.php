@@ -308,21 +308,25 @@ class SmartCrudCommand extends Command
         $reps['{{ConstructorBody}}'] = implode("\n        ", $constructorBody);
 
         // Request & Resource & Data Logic
+        $module = $this->option('module');
         if ($this->option('with-data')) {
             $dataClass = "{$this->model}Data";
-            $reps['{{RequestImport}}'] = "use App\\Data\\{$dataClass};";
+            $dataNamespace = $module ? "Modules\\{$module}\\Data" : "App\\Data";
+            $reps['{{RequestImport}}'] = "use {$dataNamespace}\\{$dataClass};";
             $reps['{{RequestClass}}'] = $dataClass;
             $reps['{{ResourceImport}}'] = "";
             $reps['{{IndexBody}}'] = "return \$this->successResponse({$dataClass}::collection({$this->model}::all()));";
             $reps['{{StoreBody}}'] = "\$data = \$this->{$this->model}Service->create(\$request->toArray());\n        return \$this->successResponse({$dataClass}::from(\$data), '{$this->model} created.', 201);";
         } else {
             $requestClass = $this->option('with-request') ? "{$this->model}Request" : "Request";
-            $reps['{{RequestImport}}'] = $this->option('with-request') ? "use App\\Http\\Requests\\{$requestClass};" : "use Illuminate\\Http\\Request;";
+            $requestNamespace = $module ? "Modules\\{$module}\\Http\\Requests" : "App\\Http\\Requests";
+            $reps['{{RequestImport}}'] = $this->option('with-request') ? "use {$requestNamespace}\\{$requestClass};" : "use Illuminate\\Http\\Request;";
             $reps['{{RequestClass}}'] = $requestClass;
 
             if ($this->option('with-resource')) {
                 $resourceClass = "{$this->model}Resource";
-                $reps['{{ResourceImport}}'] = "use App\\Http\\Resources\\{$resourceClass};";
+                $resourceNamespace = $module ? "Modules\\{$module}\\Http\\Resources" : "App\\Http\\Resources";
+                $reps['{{ResourceImport}}'] = "use {$resourceNamespace}\\{$resourceClass};";
                 $reps['{{IndexBody}}'] = "return \$this->successResponse({$resourceClass}::collection({$this->model}::all()));";
                 $reps['{{StoreBody}}'] = "\$data = \$this->{$this->model}Service->create(\$request->validated());\n        return \$this->successResponse(new {$resourceClass}(\$data), '{$this->model} created.', 201);";
             } else {
@@ -344,11 +348,14 @@ class SmartCrudCommand extends Command
 
     protected function generateTest()
     {
-        $path = base_path("tests/Feature/{$this->model}Test.php");
+        $module = $this->option('module');
+        $path = $module ? base_path("Modules/{$module}/Tests/Feature/{$this->model}Test.php") : base_path("tests/Feature/{$this->model}Test.php");
         $stub = File::get(__DIR__ . '/../../stubs/test.stub');
 
+        $modelPath = $module ? "Modules\\{$module}\\Models\\{$this->model}" : "App\\Models\\{$this->model}";
+
         $this->createFile($path, $stub, [
-            '{{ModelPath}}' => "App\\Models\\{$this->model}",
+            '{{ModelPath}}' => $modelPath,
             '{{ModelClass}}' => $this->model,
             '{{ModelVariable}}' => Str::camel($this->model),
             '{{ModelVariables}}' => Str::plural(Str::camel($this->model)),

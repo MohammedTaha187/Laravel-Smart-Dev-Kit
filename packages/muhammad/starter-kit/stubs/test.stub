@@ -4,22 +4,35 @@ use {{ModelPath}};
 use function Pest\Laravel\{getJson, postJson, putJson, deleteJson};
 
 beforeEach(function () {
-    //
+    $this->{{ModelVariable}} = {{ModelClass}}::factory()->create();
 });
 
 test('can list {{ModelVariables}}', function () {
-    {{ModelClass}}::factory()->count(3)->create();
-
     getJson('/api/v1/{{Route}}')
         ->assertStatus(200)
-        ->assertJsonCount(3, 'data');
+        ->assertJsonStructure(['data', 'message']);
 });
 
 test('can create {{ModelVariable}}', function () {
-    $data = [
-        //
-    ];
-
+    $data = {{ModelClass}}::factory()->make()->toArray();
+    
     postJson('/api/v1/{{Route}}', $data)
         ->assertStatus(201);
+});
+
+test('can show {{ModelVariable}}', function () {
+    getJson("/api/v1/{{Route}}/{$this->{{ModelVariable}}->id}")
+        ->assertStatus(200);
+});
+
+test('can update {{ModelVariable}}', function () {
+    $data = ['name' => 'Updated Name'];
+    
+    putJson("/api/v1/{{Route}}/{$this->{{ModelVariable}}->id}", $data)
+        ->assertStatus(200);
+});
+
+test('can delete {{ModelVariable}}', function () {
+    deleteJson("/api/v1/{{Route}}/{$this->{{ModelVariable}}->id}")
+        ->assertStatus(204);
 });

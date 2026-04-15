@@ -9,8 +9,8 @@ use Illuminate\Support\Str;
 
 class SmartSyncRelationsCommand extends Command
 {
-    protected $signature = 'smart:sync-relations';
-    protected $description = 'Scan DB and sync relationships into Models';
+    protected $signature = 'smart:sync-relations {--module= : The module to sync models for}';
+    protected $description = 'Scan DB and sync relationships (belongsTo & hasMany) into Models';
 
     protected $analyzer;
 
@@ -26,55 +26,114 @@ class SmartSyncRelationsCommand extends Command
 
         $models = $this->getModels();
 
-        foreach ($models as $modelName) {
-            $this->syncModel($modelName);
+        if (empty($models)) {
+            $this->warn("No models found.");
+            return;
         }
 
-        $this->info("Relationships synced successfully!");
+        foreach ($models as $modelData) {
+            $this->syncModel($modelData);
+        }
+
+        $this->info("\nRelationships synced successfully!");
     }
 
     protected function getModels(): array
     {
-        $path = app_path('Models');
-        if (!File::exists($path)) return [];
+        $models = [];
 
-        return collect(File::files($path))
-            ->map(fn($file) => $file->getBasename('.php'))
-            ->filter(fn($name) => $name !== 'User') // Skip user for now or handle carefully
-            ->toArray();
+        // 1. Scan App Models
+        if (!$this->option('module')) {
+            $appPath = app_path('Models');
+            if (File::exists($appPath)) {
+                foreach (File::files($appPath) as $file) {
+                    $name = $file->getBasename('.php');
+                    if ($name === 'User') continue; // Skip standard user
+                    $models[] = [
+                        'name' => $name,
+                        'path' => $file->getRealPath(),
+                        'namespace' => 'App\\Models',
+                    ];
+                }
+            }
+        }
+
+        // 2. Scan Module Models
+        $module = $this->option('module');
+        $modulePaths = $module ? [base_path("Modules/{$module}")] : glob(base_path('Modules/*'), GLOB_ONLYDIR);
+
+        foreach ($modulePaths as $path) {
+            $moduleName = basename($path);
+            $modelPath = "{$path}/app/Models";
+            if (File::exists($modelPath)) {
+                foreach (File::files($modelPath) as $file) {
+                    $models[] = [
+                        'name' => $file->getBasename('.php'),
+                        'path' => $file->getRealPath(),
+                        'namespace' => "Modules\\{$moduleName}\\Models",
+                    ];
+                }
+            }
+        }
+
+        return $models;
     }
 
-    protected function syncModel(string $modelName)
+    protected function syncModel(array $modelData)
     {
-        $fullClass = "App\\Models\\{$modelName}";
-        $modelInstance = new $fullClass;
-        $table = $modelInstance->getTable();
-
-        $relationships = $this->analyzer->identifyRelationships($table);
-        $this->info("Analyzing {$modelName} (Table: {$table})...");
-
-        if (empty($relationships)) {
-            $this->warn("No foreign keys found for {$table}.");
+        $fullClass = $modelData['namespace'] . "\\" . $modelData['name'];
+        
+        try {
+            $modelInstance = new $fullClass;
+            $table = $modelInstance->getTable();
+        } catch (\Exception $e) {
+            $this->error("Could not instantiate {$fullClass}. Skpping.");
             return;
         }
 
-        $modelPath = app_path("Models/{$modelName}.php");
-        $content = File::get($modelPath);
+        $this->info("\nAnalyzing {$modelData['name']} (Table: {$table})...");
+        $relationships = $this->analyzer->identifyRelationships($table);
 
-        foreach ($relationships['belongsTo'] ?? [] as $rel) {
-            $methodName = $rel['method'];
-            if (Str::contains($content, "function {$methodName}()")) {
-                $this->line(" - Relationship {$methodName}() already exists in {$modelName}. Skipping.");
-                continue;
-            }
+        $content = File::get($modelData['path']);
+        $originalContent = $content;
 
-            $methodCode = "\n    public function {$methodName}()\n    {\n        return \$this->belongsTo(\\{$rel['model']}::class, '{$rel['foreign_key']}', '{$rel['owner_key']}');\n    }\n";
-            
-            // Insert before the last closing brace
-            $content = preg_replace('/}([^}]*)$/', $methodCode . '}$1', $content);
-            $this->info(" + Added belongsTo: {$methodName}() to {$modelName}.");
+        // Process BelongsTo
+        foreach ($relationships['belongsTo'] as $rel) {
+            $content = $this->injectRelationship($content, 'belongsTo', $rel, $modelData['name']);
         }
 
-        File::put($modelPath, $content);
+        // Process HasMany
+        foreach ($relationships['hasMany'] as $rel) {
+            $content = $this->injectRelationship($content, 'hasMany', $rel, $modelData['name']);
+        }
+
+        if ($content !== $originalContent) {
+            File::put($modelData['path'], $content);
+            $this->info("Updated {$modelData['name']} with new relationships.");
+        } else {
+            $this->line(" - No new relationships to add for {$modelData['name']}.");
+        }
+    }
+
+    protected function injectRelationship(string $content, string $type, array $rel, string $modelName): string
+    {
+        $methodName = $rel['method'];
+        
+        if (Str::contains($content, "function {$methodName}()")) {
+            return $content;
+        }
+
+        $this->info(" + Adding {$type}: [{$methodName}] to {$modelName}.");
+
+        $returnType = $type === 'belongsTo' ? 'return $this->belongsTo(' : 'return $this->hasMany(';
+        $params = $type === 'belongsTo' 
+            ? "\\App\\Models\\{$rel['model']}::class, '{$rel['foreign_key']}', '{$rel['owner_key']}'"
+            : "\\App\\Models\\{$rel['model']}::class, '{$rel['foreign_key']}', '{$rel['local_key']}'";
+
+        // Handle modular model imports/namespace if needed (Simplified for now using full paths)
+        $code = "\n    public function {$methodName}()\n    {\n        {$returnType}{$params});\n    }\n";
+
+        // Insert before the last closing brace
+        return preg_replace('/}([^}]*)$/', $code . '}$1', $content);
     }
 }

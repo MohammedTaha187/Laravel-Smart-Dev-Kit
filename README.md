@@ -1,6 +1,6 @@
 # 🏛️ Laravel Ultimate Modular SaaS Engine (L13+)
 
-![Hero Image](/home/muhammad/.gemini/antigravity/brain/b866118b-af66-4b6b-ae86-0a07b9d8fc47/ultimate_laravel_dashboard_mockup_1776285911424.png)
+![Hero Image](public/images/hero.png)
 
 [![Laravel](https://img.shields.io/badge/Laravel-13.x-FF2D20?style=for-the-badge&logo=laravel)](https://laravel.com)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=for-the-badge&logo=php)](https://php.net)

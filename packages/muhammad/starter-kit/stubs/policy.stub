@@ -1,0 +1,50 @@
+<?php
+
+namespace {{Namespace}};
+
+use {{ModelPath}};
+use {{UserPath}};
+use Illuminate\Auth\Access\Response;
+
+class {{Class}}
+{
+    /**
+     * Determine whether the user can view any models.
+     */
+    public function viewAny({{UserClass}} $user): bool
+    {
+        return true;
+    }
+
+    /**
+     * Determine whether the user can view the model.
+     */
+    public function view({{UserClass}} $user, {{ModelClass}} ${{ModelVariable}}): bool
+    {
+        return true;
+    }
+
+    /**
+     * Determine whether the user can create models.
+     */
+    public function create({{UserClass}} $user): bool
+    {
+        return true;
+    }
+
+    /**
+     * Determine whether the user can update the model.
+     */
+    public function update({{UserClass}} $user, {{ModelClass}} ${{ModelVariable}}): bool
+    {
+        return true;
+    }
+
+    /**
+     * Determine whether the user can delete the model.
+     */
+    public function delete({{UserClass}} $user, {{ModelClass}} ${{ModelVariable}}): bool
+    {
+        return true;
+    }
+}

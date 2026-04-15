@@ -1,0 +1,25 @@
+<?php
+
+use {{ModelPath}};
+use function Pest\Laravel\{getJson, postJson, putJson, deleteJson};
+
+beforeEach(function () {
+    //
+});
+
+test('can list {{ModelVariables}}', function () {
+    {{ModelClass}}::factory()->count(3)->create();
+
+    getJson('/api/v1/{{Route}}')
+        ->assertStatus(200)
+        ->assertJsonCount(3, 'data');
+});
+
+test('can create {{ModelVariable}}', function () {
+    $data = [
+        //
+    ];
+
+    postJson('/api/v1/{{Route}}', $data)
+        ->assertStatus(201);
+});

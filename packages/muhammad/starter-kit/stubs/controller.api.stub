@@ -1,0 +1,65 @@
+<?php
+
+namespace {{Namespace}};
+
+use {{BaseControllerPath}};
+use {{ModelPath}};
+{{ServiceImport}}
+{{ResourceImport}}
+{{RequestImport}}
+use Illuminate\Http\JsonResponse;
+
+/**
+ * @group {{Model}} Management
+ *
+ * APIs for managing {{Model}}s
+ */
+class {{Class}} extends {{BaseController}}
+{
+    {{Properties}}
+
+    public function __construct({{Constructor}})
+    {
+        {{ConstructorBody}}
+    }
+
+    /**
+     * Display a listing of the resource.
+     */
+    public function index(): JsonResponse
+    {
+        {{IndexBody}}
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store({{RequestClass}} $request): JsonResponse
+    {
+        {{StoreBody}}
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show({{ModelClass}} ${{ModelVariable}}): JsonResponse
+    {
+        {{ShowBody}}
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update({{RequestClass}} $request, {{ModelClass}} ${{ModelVariable}}): JsonResponse
+    {
+        {{UpdateBody}}
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy({{ModelClass}} ${{ModelVariable}}): JsonResponse
+    {
+        {{DestroyBody}}
+    }
+}

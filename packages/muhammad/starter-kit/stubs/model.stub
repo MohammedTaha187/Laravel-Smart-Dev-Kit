@@ -1,0 +1,25 @@
+<?php
+
+namespace {{Namespace}};
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+{{SoftDeletesImport}}
+{{MediaImports}}
+{{TranslationImport}}
+
+class {{Class}} extends Model {{MediaImplements}}
+{
+    use HasFactory{{SoftDeletesTrait}}, {{MediaTrait}}, {{TranslationTrait}};
+    {{EnterpriseTraits}}
+    {{TranslatableFields}}
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        //
+    ];
+}

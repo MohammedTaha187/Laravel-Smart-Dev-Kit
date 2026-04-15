@@ -1,0 +1,15 @@
+<?php
+
+namespace {{Namespace}};
+
+class {{Class}} extends BaseService {{Implements}}
+{
+    public function __construct(\App\Models\{{Model}} $model)
+    {
+        parent::__construct($model);
+    }
+
+    /**
+     * Business logic for {{Class}}.
+     */
+}

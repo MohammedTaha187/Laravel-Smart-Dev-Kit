@@ -1,0 +1,14 @@
+<?php
+
+namespace {{Namespace}};
+
+class {{Class}} {{Implements}}
+{
+    /**
+     * Data access logic for {{Class}}.
+     */
+    public function find(int $id)
+    {
+        //
+    }
+}

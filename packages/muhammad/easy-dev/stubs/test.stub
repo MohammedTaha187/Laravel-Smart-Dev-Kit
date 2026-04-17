@@ -1,38 +1,53 @@
 <?php
 
 use {{ModelPath}};
-use function Pest\Laravel\{getJson, postJson, putJson, deleteJson};
+use App\Models\User;
+use function Pest\Laravel\{getJson, postJson, putJson, patchJson, deleteJson, actingAs};
 
 beforeEach(function () {
+    $this->admin = User::factory()->create()->assignRole('admin');
     $this->{{ModelVariable}} = {{ModelClass}}::factory()->create();
 });
 
-test('can list {{ModelVariables}}', function () {
-    getJson('/api/v1/{{Route}}')
-        ->assertStatus(200)
-        ->assertJsonStructure(['data', 'message']);
+it('can list all {{ModelVariables}}', function () {
+    actingAs($this->admin)
+        ->getJson('/api/v1/{{Route}}')
+        ->assertOk()
+        ->assertJsonPath('success', true)
+        ->assertJsonStructure(['data', 'meta', 'message']);
 });
 
-test('can create {{ModelVariable}}', function () {
-    $data = {{ModelClass}}::factory()->make()->toArray();
-    
-    postJson('/api/v1/{{Route}}', $data)
-        ->assertStatus(201);
+it('can create a {{ModelVariable}}', function () {
+    $payload = {{ModelClass}}::factory()->make()->toArray();
+
+    actingAs($this->admin)
+        ->postJson('/api/v1/{{Route}}', $payload)
+        ->assertCreated()
+        ->assertJsonPath('success', true)
+        ->assertJsonStructure(['data' => ['id']]);
 });
 
-test('can show {{ModelVariable}}', function () {
-    getJson("/api/v1/{{Route}}/{$this->{{ModelVariable}}->id}")
-        ->assertStatus(200);
+it('can show a {{ModelVariable}}', function () {
+    actingAs($this->admin)
+        ->getJson("/api/v1/{{Route}}/{$this->{{ModelVariable}}->id}")
+        ->assertOk()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('data.id', $this->{{ModelVariable}}->id);
 });
 
-test('can update {{ModelVariable}}', function () {
-    $data = ['name' => 'Updated Name'];
-    
-    putJson("/api/v1/{{Route}}/{$this->{{ModelVariable}}->id}", $data)
-        ->assertStatus(200);
+it('can update a {{ModelVariable}}', function () {
+    $payload = {{ModelClass}}::factory()->make()->toArray();
+
+    actingAs($this->admin)
+        ->putJson("/api/v1/{{Route}}/{$this->{{ModelVariable}}->id}", $payload)
+        ->assertOk()
+        ->assertJsonPath('success', true);
 });
 
-test('can delete {{ModelVariable}}', function () {
-    deleteJson("/api/v1/{{Route}}/{$this->{{ModelVariable}}->id}")
-        ->assertStatus(204);
+it('can delete a {{ModelVariable}}', function () {
+    actingAs($this->admin)
+        ->deleteJson("/api/v1/{{Route}}/{$this->{{ModelVariable}}->id}")
+        ->assertNoContent();
+
+    $this->assertDatabaseMissing('{{Table}}', ['id' => $this->{{ModelVariable}}->id]);
 });

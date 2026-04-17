@@ -4,16 +4,18 @@ namespace {{Namespace}};
 
 use {{ModelPath}};
 use {{UserPath}};
-use Illuminate\Auth\Access\Response;
+use Illuminate\Auth\Access\HandlesAuthorization;
 
 class {{Class}}
 {
+    use HandlesAuthorization;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny({{UserClass}} $user): bool
     {
-        return true;
+        return $user->hasPermissionTo('view-any-{{modelVariable}}');
     }
 
     /**
@@ -21,7 +23,7 @@ class {{Class}}
      */
     public function view({{UserClass}} $user, {{ModelClass}} ${{ModelVariable}}): bool
     {
-        return true;
+        return $user->hasPermissionTo('view-{{modelVariable}}');
     }
 
     /**
@@ -29,7 +31,7 @@ class {{Class}}
      */
     public function create({{UserClass}} $user): bool
     {
-        return true;
+        return $user->hasPermissionTo('create-{{modelVariable}}');
     }
 
     /**
@@ -37,7 +39,7 @@ class {{Class}}
      */
     public function update({{UserClass}} $user, {{ModelClass}} ${{ModelVariable}}): bool
     {
-        return true;
+        return $user->hasPermissionTo('update-{{modelVariable}}');
     }
 
     /**
@@ -45,6 +47,22 @@ class {{Class}}
      */
     public function delete({{UserClass}} $user, {{ModelClass}} ${{ModelVariable}}): bool
     {
-        return true;
+        return $user->hasPermissionTo('delete-{{modelVariable}}');
+    }
+
+    /**
+     * Determine whether the user can restore the model.
+     */
+    public function restore({{UserClass}} $user, {{ModelClass}} ${{ModelVariable}}): bool
+    {
+        return $user->hasPermissionTo('restore-{{modelVariable}}');
+    }
+
+    /**
+     * Determine whether the user can permanently delete the model.
+     */
+    public function forceDelete({{UserClass}} $user, {{ModelClass}} ${{ModelVariable}}): bool
+    {
+        return $user->hasPermissionTo('force-delete-{{modelVariable}}');
     }
 }

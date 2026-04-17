@@ -2,10 +2,14 @@
 
 namespace {{Namespace}};
 
-class {{Class}} extends BaseRepository {{Implements}}
+use {{Namespace}}\Contracts\{{Class}}Interface;
+use EasyDev\Laravel\Repositories\BaseRepository;
+use {{ModelPath}};
+
+class {{Class}} extends BaseRepository implements {{Class}}Interface
 {
-    public function find(int $id)
+    public function __construct({{ModelClass}} $model)
     {
-        //
+        parent::__construct($model);
     }
 }

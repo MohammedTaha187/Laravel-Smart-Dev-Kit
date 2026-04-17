@@ -32,7 +32,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "EasyDev\\Laravel\\EasyDevServiceProvider"
+                "EasyDev\\Laravel\\StarterKitServiceProvider"
             ]
         }
     },

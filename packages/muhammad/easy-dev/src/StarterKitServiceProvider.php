@@ -7,7 +7,10 @@ use EasyDev\Laravel\Commands\SmartCrudCommand;
 use EasyDev\Laravel\Commands\SmartFromMigrationCommand;
 use EasyDev\Laravel\Commands\SmartSyncRelationsCommand;
 
-class EasyDevServiceProvider extends ServiceProvider
+/**
+ * StarterKitServiceProvider — registers and boots the muhammad/easy-dev package.
+ */
+class StarterKitServiceProvider extends ServiceProvider
 {
     /**
      * Register services.
@@ -15,7 +18,8 @@ class EasyDevServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(
-            __DIR__.'/../config/starter-kit.php', 'starter-kit'
+            __DIR__ . '/../config/starter-kit.php',
+            'starter-kit'
         );
     }
 
@@ -25,14 +29,17 @@ class EasyDevServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if ($this->app->runningInConsole()) {
+            // Publish config
             $this->publishes([
-                __DIR__.'/../config/starter-kit.php' => config_path('starter-kit.php'),
+                __DIR__ . '/../config/starter-kit.php' => config_path('starter-kit.php'),
             ], 'starter-kit-config');
 
+            // Publish stubs so users can customise them
             $this->publishes([
-                __DIR__.'/../stubs' => base_path('stubs/starter-kit'),
+                __DIR__ . '/../stubs' => base_path('stubs/starter-kit'),
             ], 'starter-kit-stubs');
 
+            // Register Artisan commands
             $this->commands([
                 SmartCrudCommand::class,
                 SmartSyncRelationsCommand::class,

@@ -2,10 +2,10 @@
 
 namespace {{Namespace}};
 
-use App\Data\BaseData;
+use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Attributes\Validation\Rule;
 
-class {{Class}} extends BaseData
+class {{Class}} extends Data
 {
     public function __construct(
         {{Properties}}

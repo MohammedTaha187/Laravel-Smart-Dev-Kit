@@ -1,9 +1,9 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "muhammad/laravel-smart-dev-kit",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "Laravel Smart Dev Kit — Rapid API development starter with Clean Architecture, smart code generation, and full Spatie ecosystem integration.",
+    "keywords": ["laravel", "api", "crud", "code-generator", "clean-architecture", "spatie"],
     "license": "MIT",
     "require": {
         "php": "^8.3",

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "eff3d60f55aef7fd176dc182f8d43180",
+    "content-hash": "7bcbb7e82595f1078fbd77ff88112280",
     "packages": [
         {
             "name": "brick/math",
@@ -2801,7 +2801,7 @@
             "dist": {
                 "type": "path",
                 "url": "./packages/muhammad/easy-dev",
-                "reference": "5ce736daaabdf5f75df15aad2703d8043c47b42f"
+                "reference": "3e669d7080bb15d11b95fad315b75852e5cc7885"
             },
             "require": {
                 "illuminate/support": "^11.0|^12.0|^13.0",
@@ -2816,7 +2816,7 @@
             "extra": {
                 "laravel": {
                     "providers": [
-                        "EasyDev\\Laravel\\EasyDevServiceProvider"
+                        "EasyDev\\Laravel\\StarterKitServiceProvider"
                     ]
                 }
             },

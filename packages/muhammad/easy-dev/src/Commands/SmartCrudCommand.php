@@ -9,12 +9,11 @@ use EasyDev\Laravel\Services\DBAnalyzer;
 
 class SmartCrudCommand extends Command
 {
-    protected $signature = 'smart:crud {name} 
+    protected $signature = 'smart:crud {name}
                             {--api : Create an API controller}
                             {--with-service : Create a service class}
                             {--with-repository : Create a repository class}
                             {--with-resource : Create an API resource}
-                            {--with-request : Create a form request}
                             {--with-data : Create a Spatie Data object (Type-Safe)}
                             {--with-contracts : Generate interfaces/contracts for services and repositories}
                             {--module= : Generate code inside a specific module}
@@ -23,16 +22,16 @@ class SmartCrudCommand extends Command
                             {--with-media : Add media support using Spatie Media Library}
                             {--with-event : Generate model events}
                             {--with-notification : Generate a default notification class}
-                            {--with-payments : Add payment support using Laravel Cashier}
                             {--with-logs : Add activity logging}
                             {--soft-delete : Add soft delete support}
                             {--translatable= : Comma-separated list of translatable fields}';
 
-    protected $description = 'Generate a complete CRUD feature set';
+    protected $description = 'Generate a complete CRUD feature set (11 files)';
 
-    protected $model;
-    protected $config;
-    protected $analyzer;
+    protected string $model;
+    protected ?string $module;
+    protected array $config;
+    protected DBAnalyzer $analyzer;
 
     public function __construct(DBAnalyzer $analyzer)
     {
@@ -40,394 +39,525 @@ class SmartCrudCommand extends Command
         $this->analyzer = $analyzer;
     }
 
-    public function handle()
+    public function handle(): void
     {
-        $this->model = $this->argument('name');
+        $this->model  = $this->argument('name');
+        $this->module = $this->option('module');
         $this->config = config('starter-kit');
 
-        $this->info("Generating Professional CRUD for {$this->model}...");
+        $this->info("🚀 Generating CRUD for [{$this->model}]" . ($this->module ? " in module [{$this->module}]" : '') . '...');
+        $this->newLine();
 
-        // Always generate these by default
+        // Layer 1 — Model + Migration
         $this->generateModel();
         $this->generateMigration();
-        $this->generateRequest();
+
+        // Layer 2 — HTTP
+        $this->generateStoreRequest();
+        $this->generateUpdateRequest();
         $this->generateResource();
-        $this->generateData();
+        $this->generateCollection();
+
+        // Layer 3 — Service
         $this->generateService();
+
+        // Layer 4 — Repository
         $this->generateRepository();
+
+        // Layer 5 — DTO + Policy + Test
+        $this->generateData();
         $this->generatePolicy();
-        $this->generateController();
         $this->generateTest();
 
-        if ($this->option('with-notification')) $this->generateNotification();
-        if ($this->option('with-event')) $this->generateEvent();
+        // Controller (wires everything together)
+        $this->generateController();
 
+        // Optional extras
+        if ($this->option('with-notification')) {
+            $this->generateNotification();
+        }
+        if ($this->option('with-event')) {
+            $this->generateEvent();
+        }
+
+        // Route registration
         $this->registerRoute();
 
-        $this->info("Professional CRUD for {$this->model} generated successfully!");
+        $this->newLine();
+        $this->info("✅ CRUD for [{$this->model}] generated successfully!");
+        $this->newLine();
+        $this->warn('⚡ Remember to:');
+        $this->line('  1. Add bindings to RepositoryServiceProvider');
+        $this->line('  2. Run: php artisan migrate');
+        $this->line('  3. Grant permissions for the new model policies');
     }
 
-    protected function getBasePath()
+    // ──────────────────────────────────────────────────
+    // Path & Namespace Helpers
+    // ──────────────────────────────────────────────────
+
+    protected function getBasePath(): string
     {
-        if ($module = $this->option('module')) {
-            return base_path("Modules/{$module}/app");
-        }
-        return app_path();
+        return $this->module
+            ? base_path("Modules/{$this->module}")
+            : app_path();
     }
 
-    protected function getBaseNamespace()
+    protected function getBaseNamespace(): string
     {
-        if ($module = $this->option('module')) {
-            return "Modules\\{$module}";
-        }
-        return "App";
+        return $this->module
+            ? "Modules\\{$this->module}"
+            : 'App';
     }
 
-    protected function generateModel()
+    /**
+     * Api/V1/{Module} sub-path for controllers, requests, resources.
+     */
+    protected function getApiSubPath(): string
     {
-        $stub = File::get(__DIR__ . '/../../stubs/model.stub');
+        return $this->module ? "Api/V1/{$this->module}" : 'Api/V1';
+    }
+
+    protected function getApiSubNamespace(): string
+    {
+        return $this->module ? "Api\\V1\\{$this->module}" : 'Api\\V1';
+    }
+
+    // ──────────────────────────────────────────────────
+    // Layer 1 — Model + Migration
+    // ──────────────────────────────────────────────────
+
+    protected function generateModel(): void
+    {
         $basePath = $this->getBasePath();
-        $path = ($this->option('module')) ? "{$basePath}/Models/{$this->model}.php" : app_path("Models/{$this->model}.php");
+        $path     = "{$basePath}/Models/{$this->model}.php";
+        $stub     = File::get(__DIR__ . '/../../stubs/model.stub');
+
+        $namespace = $this->getBaseNamespace() . '\\Models';
 
         $replacements = [
-            '{{Namespace}}' => $this->getBaseNamespace() . ($this->option('module') ? '\\Models' : '\\Models'),
-            '{{Class}}' => $this->model,
-            '{{SoftDeletesImport}}' => $this->option('soft-delete') ? 'use Illuminate\\Database\\Eloquent\\SoftDeletes;' : '',
-            '{{SoftDeletesTrait}}' => $this->option('soft-delete') ? ', SoftDeletes' : '',
-            '{{MediaImports}}' => $this->option('with-media') ? "use Spatie\\MediaLibrary\\HasMedia;\nuse Spatie\\MediaLibrary\\InteractsWithMedia;" : '',
-            '{{MediaImplements}}' => $this->option('with-media') ? 'implements HasMedia' : '',
-            '{{MediaTrait}}' => $this->option('with-media') ? 'use InteractsWithMedia;' : '',
-            '{{TranslationImport}}' => $this->option('translatable') ? "use App\\Traits\\HasTranslations;" : '',
-            '{{TranslationTrait}}' => $this->option('translatable') ? "use HasTranslations;" : '',
+            '{{Namespace}}'         => $namespace,
+            '{{Class}}'             => $this->model,
+            '{{SoftDeletesImport}}' => $this->option('soft-delete')
+                ? 'use Illuminate\\Database\\Eloquent\\SoftDeletes;'
+                : '',
+            '{{SoftDeletesTrait}}'  => $this->option('soft-delete')
+                ? ', SoftDeletes'
+                : '',
+            '{{MediaImports}}'      => $this->option('with-media')
+                ? "use Spatie\\MediaLibrary\\HasMedia;\nuse Spatie\\MediaLibrary\\InteractsWithMedia;"
+                : '',
+            '{{MediaImplements}}'   => $this->option('with-media') ? 'implements HasMedia' : '',
+            '{{MediaTrait}}'        => $this->option('with-media') ? ', InteractsWithMedia' : '',
+            '{{TranslationImport}}' => $this->option('translatable')
+                ? 'use Spatie\\Translatable\\HasTranslations;'
+                : '',
+            '{{TranslationTrait}}'  => $this->option('translatable') ? ', HasTranslations' : '',
             '{{TranslatableFields}}' => $this->getTranslatableFields(),
-            '{{EnterpriseTraits}}' => $this->getEnterpriseTraits(),
+            '{{EnterpriseTraits}}'  => $this->getEnterpriseTraits(),
         ];
 
         $this->createFile($path, $stub, $replacements);
     }
 
-    protected function generateMigration()
+    protected function generateMigration(): void
     {
         $table = Str::snake(Str::pluralStudly($this->model));
-        $filename = date('Y_m_d_His') . "_create_{$table}_table.php";
-        $path = database_path("migrations/{$filename}");
 
         $this->call('make:migration', [
-            'name' => "create_{$table}_table",
-            '--create' => $table
+            'name'     => "create_{$table}_table",
+            '--create' => $table,
         ]);
 
         if ($this->option('soft-delete')) {
-            $this->info("Note: Remember to add \$table->softDeletes(); to your migration.");
+            $this->warn("  ⚠ Remember to add \$table->softDeletes(); to your migration.");
         }
     }
 
-    protected function generateRequest()
+    // ──────────────────────────────────────────────────
+    // Layer 2 — HTTP (Controller + Requests + Resource + Collection)
+    // ──────────────────────────────────────────────────
+
+    protected function generateStoreRequest(): void
     {
-        $name = "{$this->model}Request";
-        $path = $this->config['paths']['request'] ?? app_path('Http/Requests');
-        $namespace = $this->config['namespaces']['request'] ?? 'App\\Http\\Requests';
-        $table = Str::snake(Str::pluralStudly($this->model));
+        $basePath  = $this->getBasePath();
+        $subPath   = $this->getApiSubPath();
+        $subNs     = $this->getApiSubNamespace();
+        $namespace = $this->getBaseNamespace() . "\\Http\\Requests\\{$subNs}";
+        $path      = "{$basePath}/Http/Requests/{$subPath}/Store{$this->model}Request.php";
+        $table     = Str::snake(Str::pluralStudly($this->model));
 
-        $rules = [];
-        if (in_array($table, array_column($this->analyzer->getTables(), 'name'))) {
-            $rules = $this->analyzer->generateRules($table);
-        }
+        $rules = $this->resolveRules($table);
 
-        $rulesString = "";
-        foreach ($rules as $col => $colRules) {
-            $rulesString .= "\n            '{$col}' => ['" . implode("', '", $colRules) . "'],";
-        }
-        if (empty($rulesString)) $rulesString = "\n            //";
-
-        $stub = File::get(__DIR__ . '/../../stubs/request.stub');
-        $this->createFile("{$path}/{$name}.php", $stub, [
-            '{{Namespace}}' => $namespace,
-            '{{Class}}' => $name,
-            '{{Rules}}' => $rulesString,
+        $stub = File::get(__DIR__ . '/../../stubs/request.store.stub');
+        $this->createFile($path, $stub, [
+            '{{Namespace}}'     => $namespace,
+            '{{ModelClass}}'    => $this->model,
+            '{{ModelPath}}'     => $this->getBaseNamespace() . "\\Models\\{$this->model}",
+            '{{modelVariable}}' => Str::camel($this->model),
+            '{{Rules}}'         => $rules,
         ]);
     }
 
-    protected function generateResource()
+    protected function generateUpdateRequest(): void
     {
-        $name = "{$this->model}Resource";
-        $path = $this->option('module') ? $this->getBasePath() . "/Http/Resources" : ($this->config['paths']['resource'] ?? app_path('Http/Resources'));
-        $namespace = $this->option('module') ? $this->getBaseNamespace() . "\\Http\\Resources" : ($this->config['namespaces']['resource'] ?? 'App\\Http\\Resources');
+        $basePath  = $this->getBasePath();
+        $subPath   = $this->getApiSubPath();
+        $subNs     = $this->getApiSubNamespace();
+        $namespace = $this->getBaseNamespace() . "\\Http\\Requests\\{$subNs}";
+        $path      = "{$basePath}/Http/Requests/{$subPath}/Update{$this->model}Request.php";
+        $table     = Str::snake(Str::pluralStudly($this->model));
+
+        // Wrap rules with sometimes() for PATCH support
+        $rules = $this->resolveRules($table, sometimes: true);
+
+        $stub = File::get(__DIR__ . '/../../stubs/request.update.stub');
+        $this->createFile($path, $stub, [
+            '{{Namespace}}'     => $namespace,
+            '{{ModelClass}}'    => $this->model,
+            '{{ModelPath}}'     => $this->getBaseNamespace() . "\\Models\\{$this->model}",
+            '{{modelVariable}}' => Str::camel($this->model),
+            '{{Rules}}'         => $rules,
+        ]);
+    }
+
+    protected function generateResource(): void
+    {
+        $basePath  = $this->getBasePath();
+        $subPath   = $this->getApiSubPath();
+        $subNs     = $this->getApiSubNamespace();
+        $namespace = $this->getBaseNamespace() . "\\Http\\Resources\\{$subNs}";
+        $path      = "{$basePath}/Http/Resources/{$subPath}/{$this->model}Resource.php";
 
         $stub = File::get(__DIR__ . '/../../stubs/resource.stub');
-        $this->createFile("{$path}/{$name}.php", $stub, [
+        $this->createFile($path, $stub, [
             '{{Namespace}}' => $namespace,
-            '{{Class}}' => $name,
+            '{{Class}}'     => "{$this->model}Resource",
         ]);
     }
 
-    protected function generateData()
+    protected function generateCollection(): void
     {
-        $name = "{$this->model}Data";
-        $path = $this->option('module') ? $this->getBasePath() . "/Data" : app_path('Data');
-        $namespace = $this->option('module') ? $this->getBaseNamespace() . "\\Data" : 'App\\Data';
+        $basePath  = $this->getBasePath();
+        $subPath   = $this->getApiSubPath();
+        $subNs     = $this->getApiSubNamespace();
+        $namespace = $this->getBaseNamespace() . "\\Http\\Resources\\{$subNs}";
+        $path      = "{$basePath}/Http/Resources/{$subPath}/{$this->model}Collection.php";
 
-        $table = Str::snake(Str::pluralStudly($this->model));
-        $rules = [];
+        $stub = File::get(__DIR__ . '/../../stubs/collection.stub');
+        $this->createFile($path, $stub, [
+            '{{Namespace}}' => $namespace,
+            '{{Class}}'     => $this->model,
+        ]);
+    }
+
+    protected function generateController(): void
+    {
+        $basePath  = $this->getBasePath();
+        $subPath   = $this->getApiSubPath();
+        $subNs     = $this->getApiSubNamespace();
+        $namespace = $this->getBaseNamespace() . "\\Http\\Controllers\\{$subNs}";
+        $path      = "{$basePath}/Http/Controllers/{$subPath}/{$this->model}Controller.php";
+
+        $serviceContractNs    = $this->getBaseNamespace() . '\\Services\\Contracts';
+        $repositoryContractNs = $this->getBaseNamespace() . '\\Repositories\\Contracts';
+        $resourceNs           = $this->getBaseNamespace() . "\\Http\\Resources\\{$subNs}";
+        $storeRequestNs       = $this->getBaseNamespace() . "\\Http\\Requests\\{$subNs}";
+        $dataNs               = $this->getBaseNamespace() . '\\DTOs';
+
+        $stub = File::get(__DIR__ . '/../../stubs/controller.api.stub');
+
+        $this->createFile($path, $stub, [
+            '{{Namespace}}'          => $namespace,
+            '{{ModelClass}}'         => $this->model,
+            '{{ModelPath}}'          => $this->getBaseNamespace() . "\\Models\\{$this->model}",
+            '{{ModelVariable}}'      => Str::camel($this->model),
+            '{{ServiceContractPath}}' => $serviceContractNs,
+            '{{StoreRequestImport}}' => "use {$storeRequestNs}\\Store{$this->model}Request;",
+            '{{UpdateRequestImport}}' => "use {$storeRequestNs}\\Update{$this->model}Request;",
+            '{{StoreRequestClass}}'  => "Store{$this->model}Request",
+            '{{UpdateRequestClass}}' => "Update{$this->model}Request",
+            '{{ResourceImport}}'     => "use {$resourceNs}\\{$this->model}Resource;",
+            '{{CollectionImport}}'   => "use {$resourceNs}\\{$this->model}Collection;",
+            '{{ResourceClass}}'      => "{$this->model}Resource",
+            '{{CollectionClass}}'    => "{$this->model}Collection",
+            '{{DataPath}}'           => "{$dataNs}\\{$this->model}Data",
+        ]);
+    }
+
+    // ──────────────────────────────────────────────────
+    // Layer 3 — Service (Interface + Implementation)
+    // ──────────────────────────────────────────────────
+
+    protected function generateService(): void
+    {
+        $basePath       = $this->getBasePath();
+        $baseNs         = $this->getBaseNamespace();
+        $serviceNs      = "{$baseNs}\\Services";
+        $contractNs     = "{$serviceNs}\\Contracts";
+        $contractPath   = "{$basePath}/Services/Contracts";
+        $servicePath    = "{$basePath}/Services";
+        $modelNs        = "{$baseNs}\\Models\\{$this->model}";
+        $dataNs         = "{$baseNs}\\DTOs\\{$this->model}Data";
+        $repoContractNs = "{$baseNs}\\Repositories\\Contracts";
+        $repoInterface  = "{$this->model}RepositoryInterface";
+
+        // 1. Interface
+        $interfaceStub = File::get(__DIR__ . '/../../stubs/service-interface.stub');
+        $this->createFile("{$contractPath}/{$this->model}ServiceInterface.php", $interfaceStub, [
+            '{{Namespace}}'  => $serviceNs,
+            '{{Class}}'      => $this->model,
+            '{{ModelClass}}' => $this->model,
+            '{{ModelPath}}'  => $modelNs,
+            '{{DataPath}}'   => $dataNs,
+        ]);
+
+        // 2. Implementation
+        $serviceStub = File::get(__DIR__ . '/../../stubs/service.stub');
+        $this->createFile("{$servicePath}/{$this->model}Service.php", $serviceStub, [
+            '{{Namespace}}'          => $serviceNs,
+            '{{Class}}'              => "{$this->model}Service",
+            '{{ModelClass}}'         => $this->model,
+            '{{ModelPath}}'          => $modelNs,
+            '{{DataPath}}'           => $dataNs,
+            '{{RepositoryInterface}}' => $repoInterface,
+            '{{RepositoryContractPath}}' => $repoContractNs,
+        ]);
+    }
+
+    // ──────────────────────────────────────────────────
+    // Layer 4 — Repository (Interface + Implementation)
+    // ──────────────────────────────────────────────────
+
+    protected function generateRepository(): void
+    {
+        $basePath     = $this->getBasePath();
+        $baseNs       = $this->getBaseNamespace();
+        $repoNs       = "{$baseNs}\\Repositories";
+        $contractNs   = "{$repoNs}\\Contracts";
+        $contractPath = "{$basePath}/Repositories/Contracts";
+        $repoPath     = "{$basePath}/Repositories";
+        $modelNs      = "{$baseNs}\\Models\\{$this->model}";
+
+        // 1. Interface
+        $interfaceStub = File::get(__DIR__ . '/../../stubs/repository-interface.stub');
+        $this->createFile("{$contractPath}/{$this->model}RepositoryInterface.php", $interfaceStub, [
+            '{{Namespace}}' => $repoNs,
+            '{{Class}}'     => $this->model,
+        ]);
+
+        // 2. Implementation
+        $repoStub = File::get(__DIR__ . '/../../stubs/repository.stub');
+        $this->createFile("{$repoPath}/{$this->model}Repository.php", $repoStub, [
+            '{{Namespace}}' => $repoNs,
+            '{{Class}}'     => "{$this->model}Repository",
+            '{{ModelClass}}' => $this->model,
+            '{{ModelPath}}' => $modelNs,
+        ]);
+    }
+
+    // ──────────────────────────────────────────────────
+    // Layer 5 — DTO + Policy + Test
+    // ──────────────────────────────────────────────────
+
+    protected function generateData(): void
+    {
+        $basePath  = $this->getBasePath();
+        $namespace = $this->getBaseNamespace() . '\\DTOs';
+        $path      = "{$basePath}/DTOs/{$this->model}Data.php";
+        $table     = Str::snake(Str::pluralStudly($this->model));
+
+        // Build typed readonly properties from DB schema
+        $rawRules = [];
         if (in_array($table, array_column($this->analyzer->getTables(), 'name'))) {
-            $rules = $this->analyzer->generateRules($table);
+            $rawRules = $this->analyzer->generateRules($table);
         }
 
         $properties = [];
-        foreach ($rules as $col => $colRules) {
-            $rulesAttr = "#[Rule('" . implode("', '", $colRules) . "')]\n        ";
-            $properties[] = "{$rulesAttr}public string \${$col}";
+        foreach ($rawRules as $col => $colRules) {
+            $type       = $this->inferPhpType($colRules);
+            $nullable   = in_array('nullable', $colRules) ? '?' : '';
+            $ruleAttr   = "#[Rule(['" . implode("', '", $colRules) . "'])]";
+            $properties[] = "{$ruleAttr}\n        public readonly {$nullable}{$type} \${$col}";
         }
-        if (empty($properties)) $properties[] = "public string \$name";
+
+        if (empty($properties)) {
+            $properties[] = 'public readonly string $name';
+        }
 
         $stub = File::get(__DIR__ . '/../../stubs/data.stub');
-        $this->createFile("{$path}/{$name}.php", $stub, [
+        $this->createFile($path, $stub, [
             '{{Namespace}}' => $namespace,
-            '{{Class}}' => $name,
+            '{{Class}}'     => "{$this->model}Data",
             '{{Properties}}' => implode(",\n        ", $properties),
         ]);
     }
 
-    protected function generateService()
+    protected function generatePolicy(): void
     {
-        $name = "{$this->model}Service";
-        $path = $this->option('module') ? $this->getBasePath() . "/Services" : ($this->config['paths']['service'] ?? app_path('Services'));
-        $namespace = $this->option('module') ? $this->getBaseNamespace() . "\\Services" : ($this->config['namespaces']['service'] ?? 'App\\Services');
-
-        // Professional Flow: Interface before Implementation
-        $this->generateContract('Service', $namespace, $name);
-
-        $stub = File::get(__DIR__ . '/../../stubs/service.stub');
-        $this->createFile("{$path}/{$name}.php", $stub, [
-            '{{Namespace}}' => $namespace,
-            '{{Class}}' => $name,
-            '{{Implements}}' => "implements {$name}Interface",
-        ]);
-    }
-
-    protected function generateRepository()
-    {
-        $name = "{$this->model}Repository";
-        $path = $this->option('module') ? $this->getBasePath() . "/Repositories" : ($this->config['paths']['repository'] ?? app_path('Repositories'));
-        $namespace = $this->option('module') ? $this->getBaseNamespace() . "\\Repositories" : ($this->config['namespaces']['repository'] ?? 'App\\Repositories');
-
-        // Professional Flow: Interface before Implementation
-        $this->generateContract('Repository', $namespace, $name);
-
-        $stub = File::get(__DIR__ . '/../../stubs/repository.stub');
-        $this->createFile("{$path}/{$name}.php", $stub, [
-            '{{Namespace}}' => $namespace,
-            '{{Class}}' => $name,
-            '{{Implements}}' => "implements {$name}Interface",
-        ]);
-    }
-
-    protected function generateContract($type, $namespace, $className)
-    {
-        $name = "{$className}Interface";
-        $basePath = $this->option('module') ? base_path("Modules/{$this->option('module')}/app/Contracts") : app_path('Contracts');
-        $contractNamespace = $this->option('module') ? "Modules\\{$this->option('module')}\\Contracts" : "App\\Contracts";
-
-        $content = "<?php\n\nnamespace {$contractNamespace};\n\ninterface {$name}\n{\n    //\n}\n";
-        
-        $this->createFile("{$basePath}/{$name}.php", $content, []);
-    }
-
-    protected function generatePolicy()
-    {
-        $name = "{$this->model}Policy";
-        $path = app_path('Policies');
+        $basePath  = $this->getBasePath();
+        $namespace = $this->getBaseNamespace() . '\\Policies';
+        $path      = "{$basePath}/Policies/{$this->model}Policy.php";
 
         $stub = File::get(__DIR__ . '/../../stubs/policy.stub');
-        $this->createFile("{$path}/{$name}.php", $stub, [
-            '{{Namespace}}' => 'App\\Policies',
-            '{{Class}}' => $name,
-            '{{ModelPath}}' => "App\\Models\\{$this->model}",
-            '{{ModelClass}}' => $this->model,
+        $this->createFile($path, $stub, [
+            '{{Namespace}}'     => $namespace,
+            '{{Class}}'         => "{$this->model}Policy",
+            '{{ModelPath}}'     => $this->getBaseNamespace() . "\\Models\\{$this->model}",
+            '{{ModelClass}}'    => $this->model,
             '{{ModelVariable}}' => Str::camel($this->model),
-            '{{UserPath}}' => "App\\Models\\User",
-            '{{UserClass}}' => 'User',
+            '{{modelVariable}}' => Str::camel($this->model),
+            '{{UserPath}}'      => 'App\\Models\\User',
+            '{{UserClass}}'     => 'User',
         ]);
     }
 
-    protected function generateController()
+    protected function generateTest(): void
     {
-        $name = "{$this->model}Controller";
-        $path = $this->config['paths']['controller'];
-        $namespace = $this->config['namespaces']['controller'];
-        $stub = File::get(__DIR__ . '/../../stubs/controller.api.stub');
+        $table = Str::snake(Str::pluralStudly($this->model));
 
-        $replacements = $this->getControllerReplacements($namespace, $name);
-        $this->createFile("{$path}/{$name}.php", $stub, $replacements);
-    }
+        $path = $this->module
+            ? base_path("Modules/{$this->module}/Tests/Feature/{$this->model}Test.php")
+            : base_path("tests/Feature/{$this->model}Test.php");
 
-    protected function getControllerReplacements($namespace, $className)
-    {
-        $reps = [
-            '{{Namespace}}' => $namespace,
-            '{{BaseControllerPath}}' => 'App\\Http\\Controllers\\Controller',
-            '{{BaseController}}' => 'Controller',
-            '{{Class}}' => $className,
-            '{{ModelPath}}' => "App\\Models\\{$this->model}",
-            '{{ModelClass}}' => $this->model,
-            '{{ModelVariable}}' => Str::camel($this->model),
-        ];
-
-        // Service & Repo Logic
-        $properties = [];
-        $constructorParams = [];
-        $constructorBody = [];
-
-        $serviceClass = "{$this->model}Service";
-        $serviceInterface = "{$serviceClass}Interface";
-        $module = $this->option('module');
-        $serviceNamespace = $module ? "Modules\\{$module}\\Contracts" : "App\\Contracts";
-        
-        $reps['{{ServiceImport}}'] = "use {$serviceNamespace}\\{$serviceInterface};";
-        $properties[] = "protected \${$serviceClass};";
-        $constructorParams[] = "{$serviceInterface} \${$serviceClass}";
-        $constructorBody[] = "\$this->{$serviceClass} = \${$serviceClass};";
-
-        $repoClass = "{$this->model}Repository";
-        $repoInterface = "{$repoClass}Interface";
-        $repoNamespace = $module ? "Modules\\{$module}\\Contracts" : "App\\Contracts";
-        
-        $reps['{{RepositoryImport}}'] = "use {$repoNamespace}\\{$repoInterface};";
-        $properties[] = "protected \${$repoClass};";
-        $constructorParams[] = "{$repoInterface} \${$repoClass}";
-        $constructorBody[] = "\$this->{$repoClass} = \${$repoClass};";
-
-        $reps['{{Properties}}'] = implode("\n    ", $properties);
-        $reps['{{Constructor}}'] = implode(", ", $constructorParams);
-        $reps['{{ConstructorBody}}'] = implode("\n        ", $constructorBody);
-
-        // Request & Resource & Data Logic
-        $module = $this->option('module');
-        if ($this->option('with-data')) {
-            $dataClass = "{$this->model}Data";
-            $dataNamespace = $module ? "Modules\\{$module}\\Data" : "App\\Data";
-            $reps['{{RequestImport}}'] = "use {$dataNamespace}\\{$dataClass};";
-            $reps['{{RequestClass}}'] = $dataClass;
-            $reps['{{ResourceImport}}'] = "";
-            $reps['{{IndexBody}}'] = "return \$this->successResponse({$dataClass}::collection({$this->model}::all()));";
-            $reps['{{StoreBody}}'] = "\$data = \$this->{$this->model}Service->create(\$request->toArray());\n        return \$this->successResponse({$dataClass}::from(\$data), '{$this->model} created.', 201);";
-        } else {
-            $requestClass = $this->option('with-request') ? "{$this->model}Request" : "Request";
-            $requestNamespace = $module ? "Modules\\{$module}\\Http\\Requests" : "App\\Http\\Requests";
-            $reps['{{RequestImport}}'] = $this->option('with-request') ? "use {$requestNamespace}\\{$requestClass};" : "use Illuminate\\Http\\Request;";
-            $reps['{{RequestClass}}'] = $requestClass;
-
-            if ($this->option('with-resource')) {
-                $resourceClass = "{$this->model}Resource";
-                $resourceNamespace = $module ? "Modules\\{$module}\\Http\\Resources" : "App\\Http\\Resources";
-                $reps['{{ResourceImport}}'] = "use {$resourceNamespace}\\{$resourceClass};";
-                $reps['{{IndexBody}}'] = "return \$this->successResponse({$resourceClass}::collection({$this->model}::all()));";
-                $reps['{{StoreBody}}'] = "\$data = \$this->{$this->model}Service->create(\$request->validated());\n        return \$this->successResponse(new {$resourceClass}(\$data), '{$this->model} created.', 201);";
-            } else {
-                $reps['{{ResourceImport}}'] = "";
-                $reps['{{IndexBody}}'] = "return \$this->successResponse({$this->model}::all());";
-                $reps['{{StoreBody}}'] = "\$data = \$this->{$this->model}Service->create(\$request->all());\n        return \$this->successResponse(\$data, '{$this->model} created.', 201);";
-            }
-        }
-
-        $reps['{{IndexBody}}'] = $reps['{{IndexBody}}'] ?? "";
-        $reps['{{StoreBody}}'] = $reps['{{StoreBody}}'] ?? "";
-        $reps['{{ShowBody}}'] = "";
-        $reps['{{UpdateBody}}'] = "";
-        $reps['{{DestroyBody}}'] = "";
-
-        return $reps;
-    }
-
-    protected function generateTest()
-    {
-        $module = $this->option('module');
-        $path = $module ? base_path("Modules/{$module}/Tests/Feature/{$this->model}Test.php") : base_path("tests/Feature/{$this->model}Test.php");
         $stub = File::get(__DIR__ . '/../../stubs/test.stub');
+        $this->createFile($path, $stub, [
+            '{{ModelPath}}'      => $this->getBaseNamespace() . "\\Models\\{$this->model}",
+            '{{ModelClass}}'     => $this->model,
+            '{{ModelVariable}}'  => Str::camel($this->model),
+            '{{ModelVariables}}' => Str::plural(Str::camel($this->model)),
+            '{{Route}}'          => Str::kebab(Str::plural($this->model)),
+            '{{Table}}'          => $table,
+        ]);
+    }
 
-        $modelPath = $module ? "Modules\\{$module}\\Models\\{$this->model}" : "App\\Models\\{$this->model}";
+    // ──────────────────────────────────────────────────
+    // Optional generators
+    // ──────────────────────────────────────────────────
+
+    protected function generateNotification(): void
+    {
+        $name      = "{$this->model}Notification";
+        $path      = app_path("Notifications/{$name}.php");
+        $stub      = File::get(__DIR__ . '/../../stubs/notification.stub');
 
         $this->createFile($path, $stub, [
-            '{{ModelPath}}' => $modelPath,
-            '{{ModelClass}}' => $this->model,
-            '{{ModelVariable}}' => Str::camel($this->model),
-            '{{ModelVariables}}' => Str::plural(Str::camel($this->model)),
-            '{{Route}}' => Str::kebab(Str::plural($this->model)),
-        ]);
-    }
-
-    protected function registerRoute()
-    {
-        $path = base_path('routes/api.php');
-        $controllerNamespace = $this->config['namespaces']['controller'];
-        $controllerClass = "{$this->model}Controller";
-        $routeName = Str::kebab(Str::plural($this->model));
-
-        $routeLine = "\nRoute::apiResource('{$routeName}', \\{$controllerNamespace}\\{$controllerClass}::class);";
-
-        File::append($path, $routeLine);
-        $this->info("Route registered: /api/v1/{$routeName}");
-    }
-
-    protected function generateNotification()
-    {
-        $name = "{$this->model}Notification";
-        $path = app_path('Notifications');
-        $stub = File::get(__DIR__ . '/../../stubs/notification.stub');
-
-        $this->createFile("{$path}/{$name}.php", $stub, [
             '{{Namespace}}' => 'App\\Notifications',
-            '{{Class}}' => $name,
-            '{{Model}}' => $this->model,
+            '{{Class}}'     => $name,
+            '{{Model}}'     => $this->model,
         ]);
     }
 
-    protected function generateEvent()
+    protected function generateEvent(): void
     {
-        $this->call('make:event', ['name' => "{$this->model}Created"]);
-        $this->call('make:event', ['name' => "{$this->model}Updated"]);
-        $this->call('make:event', ['name' => "{$this->model}Deleted"]);
+        foreach (['Created', 'Updated', 'Deleted'] as $suffix) {
+            $this->call('make:event', ['name' => "{$this->model}{$suffix}"]);
+        }
     }
 
-    protected function getTranslatableFields()
+    // ──────────────────────────────────────────────────
+    // Route registration
+    // ──────────────────────────────────────────────────
+
+    protected function registerRoute(): void
     {
-        if (! $this->option('translatable')) return "";
-        
-        $fields = explode(',', $this->option('translatable'));
-        $fieldsString = "public \$translatable = ['" . implode("', '", array_map('trim', $fields)) . "'];";
-        
-        return $fieldsString;
+        $routeFile = $this->module
+            ? base_path("Modules/{$this->module}/Routes/api.php")
+            : base_path('routes/api.php');
+
+        // Create module route file if it doesn't exist
+        if (! File::exists($routeFile)) {
+            $dir = dirname($routeFile);
+            if (! File::exists($dir)) {
+                File::makeDirectory($dir, 0755, true);
+            }
+            File::put($routeFile, "<?php\n\nuse Illuminate\\Support\\Facades\\Route;\n");
+        }
+
+        $subNs          = $this->getApiSubNamespace();
+        $controllerNs   = $this->getBaseNamespace() . "\\Http\\Controllers\\{$subNs}";
+        $controllerClass = "{$this->model}Controller";
+        $routeName       = Str::kebab(Str::plural($this->model));
+
+        $routeLine = "\nRoute::apiResource('{$routeName}', \\{$controllerNs}\\{$controllerClass}::class);";
+
+        File::append($routeFile, $routeLine);
+        $this->info("  ✓ Route registered in: {$routeFile}");
     }
 
-    protected function getEnterpriseTraits()
+    // ──────────────────────────────────────────────────
+    // Smart Validation Logic
+    // ──────────────────────────────────────────────────
+
+    protected function resolveRules(string $table, bool $sometimes = false): string
+    {
+        $rawRules = [];
+        if (in_array($table, array_column($this->analyzer->getTables(), 'name'))) {
+            $rawRules = $this->analyzer->generateRules($table);
+        }
+
+        $rulesString = '';
+        foreach ($rawRules as $col => $colRules) {
+            if ($sometimes) {
+                array_unshift($colRules, 'sometimes');
+            }
+            $rulesString .= "\n            '{$col}' => ['" . implode("', '", $colRules) . "'],";
+        }
+
+        return empty($rulesString) ? "\n            //" : $rulesString;
+    }
+
+    protected function inferPhpType(array $rules): string
+    {
+        if (in_array('integer', $rules)) return 'int';
+        if (in_array('numeric', $rules)) return 'float';
+        if (in_array('boolean', $rules)) return 'bool';
+        return 'string';
+    }
+
+    // ──────────────────────────────────────────────────
+    // Helpers
+    // ──────────────────────────────────────────────────
+
+    protected function getTranslatableFields(): string
+    {
+        if (! $this->option('translatable')) {
+            return '';
+        }
+
+        $fields = array_map('trim', explode(',', $this->option('translatable')));
+        return "public \$translatable = ['" . implode("', '", $fields) . "'];";
+    }
+
+    protected function getEnterpriseTraits(): string
     {
         $traits = [];
-        if ($this->option('with-payments')) {
-            $traits[] = "use \\App\\Traits\\HasPayments;";
-        }
+
         if ($this->option('with-logs')) {
-            $traits[] = "use \\App\\Traits\\HasProfessionalLogs;";
+            $traits[] = 'use \\Spatie\\Activitylog\\Traits\\LogsActivity;';
         }
+
         return implode("\n    ", $traits);
     }
 
-    protected function createFile($path, $stub, $replacements)
+    protected function createFile(string $path, string $stub, array $replacements): void
     {
         $directory = dirname($path);
 
-        if (!File::exists($directory)) {
+        if (! File::exists($directory)) {
             File::makeDirectory($directory, 0755, true);
         }
 
         $content = str_replace(array_keys($replacements), array_values($replacements), $stub);
 
         if (File::exists($path)) {
-            if (!$this->confirm("File {$path} already exists. Overwrite?")) {
+            if (! $this->confirm("File already exists: {$path}\nOverwrite?", false)) {
+                $this->warn("  ⤳ Skipped: {$path}");
                 return;
             }
         }
 
         File::put($path, $content);
-        $this->info("Created: {$path}");
+        $this->line("  <fg=green>✓</> Created: <fg=cyan>{$path}</>");
     }
 }

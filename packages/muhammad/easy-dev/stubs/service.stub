@@ -2,10 +2,40 @@
 
 namespace {{Namespace}};
 
-class {{Class}} extends BaseService {{Implements}}
+use {{Namespace}}\Contracts\{{Class}}Interface;
+use {{RepositoryContractPath}}\{{RepositoryInterface}};
+use {{ModelPath}};
+use {{DataPath}};
+use Illuminate\Database\Eloquent\Collection;
+
+class {{Class}} implements {{Class}}Interface
 {
-    public function __construct(\App\Models\{{Model}} $model)
+    public function __construct(
+        private readonly {{RepositoryInterface}} $repo
+    ) {}
+
+    public function getAll(): Collection
     {
-        parent::__construct($model);
+        return $this->repo->all();
+    }
+
+    public function getById(int $id): ?{{ModelClass}}
+    {
+        return $this->repo->find($id);
+    }
+
+    public function create({{ModelClass}}Data $data): {{ModelClass}}
+    {
+        return $this->repo->create($data->toArray());
+    }
+
+    public function update(int $id, {{ModelClass}}Data $data): bool
+    {
+        return $this->repo->update($id, $data->toArray());
+    }
+
+    public function delete(int $id): bool
+    {
+        return $this->repo->delete($id);
     }
 }

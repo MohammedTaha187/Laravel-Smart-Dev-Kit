@@ -2,49 +2,84 @@
 
 namespace {{Namespace}};
 
-use {{BaseControllerPath}};
+use App\Http\Controllers\Controller;
+use {{ServiceContractPath}}\{{ModelClass}}ServiceInterface;
 use {{ModelPath}};
-{{ServiceImport}}
+{{StoreRequestImport}}
+{{UpdateRequestImport}}
 {{ResourceImport}}
-{{RequestImport}}
+{{CollectionImport}}
 use Illuminate\Http\JsonResponse;
 
 /**
- * @group {{Model}} Management
+ * @group {{ModelClass}} Management
  *
- * APIs for managing {{Model}}s
+ * APIs for managing {{ModelClass}}s
  */
-class {{Class}} extends {{BaseController}}
+class {{Class}} extends Controller
 {
-    {{Properties}}
+    public function __construct(
+        private readonly {{ModelClass}}ServiceInterface $service
+    ) {}
 
-    public function __construct({{Constructor}})
-    {
-        {{ConstructorBody}}
-    }
-
+    /**
+     * Display a listing of the resource.
+     */
     public function index(): JsonResponse
     {
-        {{IndexBody}}
+        $items = $this->service->getAll();
+
+        return $this->successResponse(
+            {{CollectionClass}}::make($items),
+            '{{ModelClass}} list retrieved.'
+        );
     }
 
-    public function store({{RequestClass}} $request): JsonResponse
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store({{StoreRequestClass}} $request): JsonResponse
     {
-        {{StoreBody}}
+        ${{ModelVariable}} = $this->service->create({{ModelClass}}Data::from($request->validated()));
+
+        return $this->successResponse(
+            new {{ResourceClass}}(${{ModelVariable}}),
+            '{{ModelClass}} created successfully.',
+            201
+        );
     }
 
+    /**
+     * Display the specified resource.
+     */
     public function show({{ModelClass}} ${{ModelVariable}}): JsonResponse
     {
-        {{ShowBody}}
+        return $this->successResponse(
+            new {{ResourceClass}}(${{ModelVariable}}),
+            '{{ModelClass}} retrieved.'
+        );
     }
 
-    public function update({{RequestClass}} $request, {{ModelClass}} ${{ModelVariable}}): JsonResponse
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update({{UpdateRequestClass}} $request, {{ModelClass}} ${{ModelVariable}}): JsonResponse
     {
-        {{UpdateBody}}
+        $this->service->update(${{ModelVariable}}->id, {{ModelClass}}Data::from($request->validated()));
+
+        return $this->successResponse(
+            new {{ResourceClass}}(${{ModelVariable}}->fresh()),
+            '{{ModelClass}} updated successfully.'
+        );
     }
 
+    /**
+     * Remove the specified resource from storage.
+     */
     public function destroy({{ModelClass}} ${{ModelVariable}}): JsonResponse
     {
-        {{DestroyBody}}
+        $this->service->delete(${{ModelVariable}}->id);
+
+        return $this->successResponse(null, '{{ModelClass}} deleted successfully.', 204);
     }
 }

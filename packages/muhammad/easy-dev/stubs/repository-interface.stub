@@ -1,0 +1,10 @@
+<?php
+
+namespace {{Namespace}}\Contracts;
+
+use EasyDev\Laravel\Contracts\BaseRepositoryInterface;
+
+interface {{Class}}Interface extends BaseRepositoryInterface
+{
+    //
+}

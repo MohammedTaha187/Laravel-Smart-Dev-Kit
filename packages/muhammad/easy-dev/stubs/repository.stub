@@ -2,11 +2,11 @@
 
 namespace {{Namespace}};
 
-use {{Namespace}}\Contracts\{{Class}}Interface;
+use {{Namespace}}\Contracts\{{ModelClass}}RepositoryInterface;
 use EasyDev\Laravel\Repositories\BaseRepository;
 use {{ModelPath}};
 
-class {{Class}} extends BaseRepository implements {{Class}}Interface
+class {{Class}} extends BaseRepository implements {{ModelClass}}RepositoryInterface
 {
     public function __construct({{ModelClass}} $model)
     {

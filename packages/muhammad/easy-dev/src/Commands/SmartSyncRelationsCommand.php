@@ -13,6 +13,7 @@ class SmartSyncRelationsCommand extends Command
     protected $description = 'Scan DB and sync relationships (belongsTo & hasMany) into Models';
 
     protected $analyzer;
+    protected $modelMap = [];
 
     public function __construct(DBAnalyzer $analyzer)
     {
@@ -29,6 +30,11 @@ class SmartSyncRelationsCommand extends Command
         if (empty($models)) {
             $this->warn("No models found.");
             return;
+        }
+
+        // Build a map of ModelName => FullNamespace
+        foreach ($models as $m) {
+            $this->modelMap[$m['name']] = $m['namespace'] . "\\" . $m['name'];
         }
 
         foreach ($models as $modelData) {
@@ -126,9 +132,10 @@ class SmartSyncRelationsCommand extends Command
         $this->info(" + Adding {$type}: [{$methodName}] to {$modelName}.");
 
         $returnType = $type === 'belongsTo' ? 'return $this->belongsTo(' : 'return $this->hasMany(';
+        $targetClass = $this->modelMap[$rel['model']] ?? "\\App\\Models\\{$rel['model']}"; // Fallback to App\Models
         $params = $type === 'belongsTo' 
-            ? "\\App\\Models\\{$rel['model']}::class, '{$rel['foreign_key']}', '{$rel['owner_key']}'"
-            : "\\App\\Models\\{$rel['model']}::class, '{$rel['foreign_key']}', '{$rel['local_key']}'";
+            ? "{$targetClass}::class, '{$rel['foreign_key']}', '{$rel['owner_key']}'"
+            : "{$targetClass}::class, '{$rel['foreign_key']}', '{$rel['local_key']}'";
 
         // Defaulting to full-path imports for modular compatibility
         $code = "\n    public function {$methodName}()\n    {\n        {$returnType}{$params});\n    }\n";

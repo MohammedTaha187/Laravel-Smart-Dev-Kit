@@ -2,13 +2,13 @@
 
 namespace {{Namespace}};
 
-use {{Namespace}}\Contracts\{{Class}}Interface;
+use {{Namespace}}\Contracts\{{ModelClass}}ServiceInterface;
 use {{RepositoryContractPath}}\{{RepositoryInterface}};
 use {{ModelPath}};
 use {{DataPath}};
 use Illuminate\Database\Eloquent\Collection;
 
-class {{Class}} implements {{Class}}Interface
+class {{Class}} implements {{ModelClass}}ServiceInterface
 {
     public function __construct(
         private readonly {{RepositoryInterface}} $repo

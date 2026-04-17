@@ -6,7 +6,7 @@ use {{ModelPath}};
 use {{DataPath}};
 use Illuminate\Database\Eloquent\Collection;
 
-interface {{Class}}Interface
+interface {{ModelClass}}ServiceInterface
 {
     public function getAll(): Collection;
 

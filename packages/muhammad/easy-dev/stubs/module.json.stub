@@ -1,0 +1,13 @@
+{
+    "name": "{{Module}}",
+    "alias": "{{ModuleLower}}",
+    "description": "{{Module}} module",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\{{Module}}\\{{Module}}ServiceProvider"
+    ],
+    "aliases": {},
+    "files": [],
+    "requires": []
+}

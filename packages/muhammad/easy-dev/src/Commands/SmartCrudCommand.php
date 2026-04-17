@@ -48,6 +48,10 @@ class SmartCrudCommand extends Command
         $this->info("🚀 Generating CRUD for [{$this->model}]" . ($this->module ? " in module [{$this->module}]" : '') . '...');
         $this->newLine();
 
+        if ($this->module) {
+            $this->initializeModule();
+        }
+
         // Layer 1 — Model + Migration
         $this->generateModel();
         $this->generateMigration();
@@ -67,6 +71,7 @@ class SmartCrudCommand extends Command
         // Layer 5 — DTO + Policy + Test
         $this->generateData();
         $this->generatePolicy();
+        $this->generateFactory();
         $this->generateTest();
 
         // Controller (wires everything together)
@@ -135,9 +140,17 @@ class SmartCrudCommand extends Command
 
         $namespace = $this->getBaseNamespace() . '\\Models';
 
+        $table     = Str::snake(Str::pluralStudly($this->model));
+        $columns   = array_column($this->analyzer->getColumns($table), 'name');
+        $fillable  = array_filter($columns, function($c) {
+            return ! in_array($c, ['id', 'created_at', 'updated_at', 'deleted_at']);
+        });
+        $fillableString = "'" . implode("', '", $fillable) . "'";
+
         $replacements = [
             '{{Namespace}}'         => $namespace,
             '{{Class}}'             => $this->model,
+            '{{Fillable}}'          => $fillableString,
             '{{SoftDeletesImport}}' => $this->option('soft-delete')
                 ? 'use Illuminate\\Database\\Eloquent\\SoftDeletes;'
                 : '',
@@ -155,14 +168,62 @@ class SmartCrudCommand extends Command
             '{{TranslationTrait}}'  => $this->option('translatable') ? ', HasTranslations' : '',
             '{{TranslatableFields}}' => $this->getTranslatableFields(),
             '{{EnterpriseTraits}}'  => $this->getEnterpriseTraits(),
+            '{{FactoryMethod}}'     => $this->getFactoryMethod($namespace),
         ];
 
         $this->createFile($path, $stub, $replacements);
     }
 
+    protected function getFactoryMethod(string $namespace): string
+    {
+        if (! $this->module) {
+            return '';
+        }
+
+        $factoryClass = "Modules\\{$this->module}\\Database\\Factories\\{$this->model}Factory";
+        
+        return "\n    protected static function newFactory()\n    {\n        return \\{$factoryClass}::new();\n    }";
+    }
+
+    protected function initializeModule(): void
+    {
+        $basePath = base_path("Modules/{$this->module}");
+        
+        // 1. Create module.json if missing
+        if (! File::exists("{$basePath}/module.json")) {
+            $stub = File::get(__DIR__ . '/../../stubs/module.json.stub');
+            $this->createFile("{$basePath}/module.json", $stub, [
+                '{{Module}}'      => $this->module,
+                '{{ModuleLower}}' => Str::lower($this->module),
+            ]);
+        }
+
+        // 2. Create ServiceProvider if missing
+        $providerPath = "{$basePath}/{$this->module}ServiceProvider.php";
+        if (! File::exists($providerPath)) {
+            $stub = File::get(__DIR__ . '/../../stubs/module-provider.stub');
+            $this->createFile($providerPath, $stub, [
+                '{{Module}}' => $this->module,
+            ]);
+            
+            // Try to enable the module if nwidart is present
+            try {
+                $this->callSilent('module:enable', ['module' => $this->module]);
+            } catch (\Exception $e) {
+                // Silently skip if command not found
+            }
+        }
+    }
+
     protected function generateMigration(): void
     {
         $table = Str::snake(Str::pluralStudly($this->model));
+        $migrationExists = ! empty(glob(database_path("migrations/*create_{$table}_table.php")));
+
+        if ($migrationExists) {
+            $this->warn("  ⤳ Migration already exists for table [{$table}], skipping.");
+            return;
+        }
 
         $this->call('make:migration', [
             'name'     => "create_{$table}_table",
@@ -281,7 +342,8 @@ class SmartCrudCommand extends Command
             '{{CollectionImport}}'   => "use {$resourceNs}\\{$this->model}Collection;",
             '{{ResourceClass}}'      => "{$this->model}Resource",
             '{{CollectionClass}}'    => "{$this->model}Collection",
-            '{{DataPath}}'           => "{$dataNs}\\{$this->model}Data",
+            '{{Class}}'              => "{$this->model}Controller",
+            '{{DataImport}}'         => "use {$dataNs}\\{$this->model}Data;",
         ]);
     }
 
@@ -431,6 +493,19 @@ class SmartCrudCommand extends Command
         ]);
     }
 
+    protected function generateFactory(): void
+    {
+        $basePath  = $this->getBasePath();
+        $namespace = $this->getBaseNamespace() . '\\Database\\Factories';
+        $path      = "{$basePath}/Database/Factories/{$this->model}Factory.php";
+
+        $stub = File::get(__DIR__ . '/../../stubs/factory.stub');
+        $this->createFile($path, $stub, [
+            '{{Namespace}}' => $namespace,
+            '{{ModelPath}}' => $this->getBaseNamespace() . "\\Models\\{$this->model}",
+        ]);
+    }
+
     // ──────────────────────────────────────────────────
     // Optional generators
     // ──────────────────────────────────────────────────
@@ -512,6 +587,7 @@ class SmartCrudCommand extends Command
         if (in_array('integer', $rules)) return 'int';
         if (in_array('numeric', $rules)) return 'float';
         if (in_array('boolean', $rules)) return 'bool';
+        if (in_array('date', $rules)) return 'string'; // Or Carbon if we want to be fancy
         return 'string';
     }
 
@@ -548,6 +624,13 @@ class SmartCrudCommand extends Command
             File::makeDirectory($directory, 0755, true);
         }
 
+        $defaultReplacements = [
+            '{{ModelClass}}' => $this->model,
+            '{{Model}}'      => $this->model,
+            '{{Module}}'     => $this->module ?? '',
+        ];
+
+        $replacements = array_merge($defaultReplacements, $replacements);
         $content = str_replace(array_keys($replacements), array_values($replacements), $stub);
 
         if (File::exists($path)) {

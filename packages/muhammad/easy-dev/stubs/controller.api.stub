@@ -9,6 +9,7 @@ use {{ModelPath}};
 {{UpdateRequestImport}}
 {{ResourceImport}}
 {{CollectionImport}}
+{{DataImport}}
 use Illuminate\Http\JsonResponse;
 
 /**

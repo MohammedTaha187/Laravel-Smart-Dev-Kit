@@ -10,7 +10,11 @@ class DBAnalyzer
     // Get all tables in the database
     public function getTables(): array
     {
-        return Schema::getTables();
+        try {
+            return Schema::getTables();
+        } catch (\Exception $e) {
+            return [];
+        }
     }
 
     // Get foreign keys for a specific table
@@ -80,7 +84,11 @@ class DBAnalyzer
      */
     public function getColumns(string $table): array
     {
-        return Schema::getColumns($table);
+        try {
+            return Schema::getColumns($table);
+        } catch (\Exception $e) {
+            return [];
+        }
     }
 
     /**
@@ -116,8 +124,12 @@ class DBAnalyzer
                 }
             } elseif (Str::contains($type, 'int')) {
                 $colRules[] = 'integer';
+            } elseif (Str::contains($type, 'decimal') || Str::contains($type, 'float') || Str::contains($type, 'double')) {
+                $colRules[] = 'numeric';
             } elseif (Str::contains($type, 'bool') || Str::contains($type, 'tinyint(1)')) {
                 $colRules[] = 'boolean';
+            } elseif (Str::contains($type, 'date') || Str::contains($type, 'time')) {
+                $colRules[] = 'date';
             }
 
             // 3. Foreign Keys

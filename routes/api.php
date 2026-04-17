@@ -16,5 +16,4 @@ Route::prefix('v1')->group(function () {
         Route::post('/refresh', [AuthController::class, 'refresh']);
     });
 
-    Route::apiResource('products', \App\Http\Controllers\Api\V1\ProductController::class);
 });

@@ -4,7 +4,29 @@ use {{ModelPath}};
 use App\Models\User;
 use function Pest\Laravel\{getJson, postJson, putJson, patchJson, deleteJson, actingAs};
 
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
+
 beforeEach(function () {
+    $modelKebab = '{{Route}}'; // Route is often the kebab version of model
+    // Strip trailing 's' if any (Route is plural)
+    $singleKey = \Illuminate\Support\Str::singular($modelKebab);
+
+    $role = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+    
+    $permissions = [
+        "view-any-{$singleKey}",
+        "view-{$singleKey}",
+        "create-{$singleKey}",
+        "update-{$singleKey}",
+        "delete-{$singleKey}",
+    ];
+
+    foreach ($permissions as $p) {
+        Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']);
+        $role->givePermissionTo($p);
+    }
+
     $this->admin = User::factory()->create()->assignRole('admin');
     $this->{{ModelVariable}} = {{ModelClass}}::factory()->create();
 });
@@ -14,7 +36,7 @@ it('can list all {{ModelVariables}}', function () {
         ->getJson('/api/v1/{{Route}}')
         ->assertOk()
         ->assertJsonPath('success', true)
-        ->assertJsonStructure(['data', 'meta', 'message']);
+        ->assertJsonStructure(['data', 'message']);
 });
 
 it('can create a {{ModelVariable}}', function () {

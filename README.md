@@ -1,99 +1,60 @@
-# Laravel Smart Dev Kit
+# 🛠️ Laravel Smart Dev Kit
 
-![Hero Image](public/images/hero.png)
-
-[![CI Status](https://img.shields.io/github/actions/workflow/status/MohammedTaha187/Laravel-Smart-Dev-Kit/ci.yml?branch=main)](https://github.com/MohammedTaha187/Laravel-Smart-Dev-Kit/actions)
-[![Laravel](https://img.shields.io/badge/Laravel-13.x-FF2D20?style=for-the-badge&logo=laravel)](https://laravel.com)
-[![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=for-the-badge&logo=php)](https://php.net)
-[![Architecture](https://img.shields.io/badge/Architecture-Clean_Modular-blue?style=for-the-badge)](https://en.wikipedia.org/wiki/Clean_architecture)
+[![Laravel](https://img.shields.io/badge/Laravel-12.0-FF2D20?style=for-the-badge&logo=laravel&logoColor=white)](https://laravel.com)
+[![PHP](https://img.shields.io/badge/PHP-8.3-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://php.net)
+[![Docker](https://img.shields.io/badge/Docker-Sail-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://laravel.com/docs/sail)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-A modular SaaS starter kit for Laravel. This project provides a production-ready ecosystem that focuses on separation of concerns, multi-tenancy, and automated feature generation.
+**Laravel Smart Dev Kit** is a professional, production-ready starter kit designed for high-speed API development. It comes pre-configured with a powerful SDK (`muhammad/easy-dev`) that automates architecture generation, allowing you to focus on business logic.
 
 ---
 
-## System Architecture
+## 🏛️ Technical Stack
 
-The project follows a modular, interface-driven approach to ensure the application remains scalable and easy to test.
+- **Framework**: Laravel 12+ (PHP 8.3)
+- **Auth**: JWT (Stateless) & Spatie Permissions (RBAC)
+- **Architecture**: Modular (nwidart/laravel-modules) + Clean Architecture (Service-Repository)
+- **Data Handling**: Spatie Data (DTOs) & Spatie Query Builder
+- **Automation**: Easy Dev SDK for CRUD and Relationship generation
+- **Dev Environment**: Docker via Laravel Sail (includes Horizon & Scheduler)
+
+---
+
+## 🏗️ Folder Structure
+
+This project follows a strict multi-layered architecture:
 
 ```mermaid
-graph TD
-    A[API Request] --> B[JWT Auth Guard]
-    B --> C[SetLocale Middleware]
-    C --> D[Multi-Tenant Scoping]
-    D --> E[Spatie Data Object - DTO]
-    E --> F[Professional Controller]
-    F --> G[Service Interface - Contract]
-    G --> H[Service Implementation]
-    H --> I[Repository Implementation]
-    I --> J[Eloquent Model - Modular]
-    J --> K[MySQL / Redis]
+graph LR
+    subgraph "App Layer"
+        Controller --> DTO
+    end
+    subgraph "Business Layer"
+        DTO --> ServiceInterface
+        ServiceInterface --> ServiceImpl
+    end
+    subgraph "Data Layer"
+        ServiceImpl --> RepositoryInterface
+        RepositoryInterface --> RepositoryImpl
+        RepositoryImpl --> Model
+    end
 ```
-
-### Key Features
-- **Modular Framework**: Powered by `nwidart/laravel-modules`. Maintain clear boundaries between Ecommerce, CRM, and Billing domains.
-- **Service Layer**: Strict separation of concerns using **Interfaces (Contracts)** for maximum testability and decoupling.
-- **Type-Safe Data**: Unified validation and transformation using **Spatie Data Objects**.
-- **Security**: Integrated **JWT** for high-performance mobile and web API authentication.
-- **SaaS Ready**: Built-in **Multi-Tenancy** and **Localization** support.
 
 ---
 
-## Feature Generation: Smart CRUD
+## 🚀 Quick Start
 
-The package includes a custom **`smart:crud`** command that automates the creation of all required files for a new feature.
-
-### **The Power Command:**
+### 1. Clone & Setup
 ```bash
-./vendor/bin/sail artisan smart:crud Product \
-  --api \
-  --with-service \
-  --with-data \
-  --with-contracts \
-  --translatable=name,description \
-  --with-media \
-  --module=Ecommerce
-```
-
-### Files Generated
-Running the command with the flags below will generate the following components:
-- **Model** & **Migration** (with Translatable & Tenant traits).
-- **Controller** (Clean API logic).
-- **Service** & **Repository** (Strict separation of concerns).
-- **Service & Repository Interfaces** (Contracts for DI).
-- **Spatie Data Object** (The Type-safe DTO).
-- **Form Request** & **API Resource**.
-- **Policy** (Security & Permissions).
-- **Feature Test** (Ready-to-run Pest tests).
-
-### ✨ Architectural Generation:
-- **`--module=X`**: Nests files directly into a specific domain module.
-- **`--with-data`**: Generates a type-safe Data Object for precise payload handling.
-- **`--with-contracts`**: Automatically generates Interfaces and binds them in the Container.
-- **`--translatable=fields`**: Injects multi-language support into the database and model.
-
----
-
-## 🛠️ Step-by-Step Installation
-
-## 🛠️ Step-by-Step Installation
-
-### 1. **Clone & Install**:
-   ```bash
-   git clone https://github.com/MohammedTaha187/Laravel-Smart-Dev-Kit.git my-project && cd my-project
-   composer install
-   ```
-
-### 2. Environment Configuration
-Create your environment file and generate the necessary security keys.
-```bash
+git clone https://github.com/MohammedTaha187/Laravel-Smart-Dev-Kit.git
+cd Laravel-Smart-Dev-Kit
+composer install
 cp .env.example .env
 php artisan key:generate
 php artisan jwt:secret
 ```
 
-### 3. Launch with Docker (Laravel Sail)
-This project is fully containerized. Start your environment and migrate the core tables.
+### 2. Start Environment
 ```bash
 ./vendor/bin/sail up -d
 ./vendor/bin/sail artisan migrate --seed
@@ -101,41 +62,33 @@ This project is fully containerized. Start your environment and migrate the core
 
 ---
 
-### Building a Feature (Example: Products)
+## 🪄 Smart Development Workflow
 
-Generating a complete feature with the dev kit is a straightforward process using **Laravel Sail**:
-
-### 1. Create Migration
-Define your database schema as usual.
+### Generate a Complete Feature
 ```bash
-./vendor/bin/sail artisan make:migration create_products_table
+./vendor/bin/sail artisan smart:crud Product --module=Inventory
 ```
+This single command generates the **Model, Migration, Controller, DTO, Service (Interface & Impl), Repository (Interface & Impl), Policy, and Pest Test**.
 
-### 2. Run Migration
+### Sync Database Relationships
 ```bash
-./vendor/bin/sail artisan migrate
-```
-
-### 3. Generate Components
-Generate the Controllers, Services, Repos, DTOs, and Modules for the feature.
-```bash
-./vendor/bin/sail artisan smart:crud Product \
-  --api \
-  --with-service \
-  --with-data \
-  --with-contracts \
-  --translatable=name,description \
-  --module=Inventory
+./vendor/bin/sail artisan smart:sync-relations
 ```
 
 ---
 
-## Core Principles
-1. **Single Responsibility**: Logic is separated into Services, and data handling is managed by DTOs.
-2. **Dependency Inversion**: Uses interface-driven design for better decoupling.
-3. **Extensibility**: Built with traits and modular patterns for easy growth.
+## 🧪 Testing
+We use **Pest** for all testing. Every generated feature includes an automated test suite.
+
+```bash
+./vendor/bin/sail artisan test
+```
 
 ---
 
-## License
-Licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## 👨‍💻 Author
+**Muhammad Taha**  
+*Backend Developer*
+
+---
+*Built for speed, stability, and clean code.*

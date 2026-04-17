@@ -1,0 +1,11 @@
+<?php
+
+namespace {{Namespace}};
+
+class {{Class}} extends BaseRepository {{Implements}}
+{
+    public function find(int $id)
+    {
+        //
+    }
+}

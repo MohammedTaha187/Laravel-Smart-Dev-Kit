@@ -12,15 +12,6 @@ class BindingServiceProvider extends ServiceProvider
     {
         $this->bindInterfaces(app_path('Services'), 'App\\Services');
         $this->bindInterfaces(app_path('Repositories'), 'App\\Repositories');
-        
-        // Scan Modules
-        if (File::exists(base_path('Modules'))) {
-            foreach (File::directories(base_path('Modules')) as $modulePath) {
-                $moduleName = basename($modulePath);
-                $this->bindInterfaces("{$modulePath}/app/Services", "Modules\\{$moduleName}\\Services");
-                $this->bindInterfaces("{$modulePath}/app/Repositories", "Modules\\{$moduleName}\\Repositories");
-            }
-        }
     }
 
     protected function bindInterfaces($path, $namespace)

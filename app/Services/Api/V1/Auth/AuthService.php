@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Auth;
+namespace App\Services\Api\V1\Auth;
 
 use App\Events\UserRegistered;
 use App\Mail\PasswordResetMail;
@@ -138,6 +138,50 @@ class AuthService
 
         // Delete token
         DB::table('password_reset_tokens')->where('email', $data['email'])->delete();
+    }
+
+    public function handleSocialLogin(string $provider, $socialUser): array
+    {
+        // 1. Try to find the user by provider_id
+        $user = $this->userRepository->findByProvider($provider, $socialUser->getId());
+
+        if (!$user) {
+            // 2. Fallback: Check if we have a user with the same email
+            $user = $this->userRepository->findByEmail($socialUser->getEmail());
+
+            if (!$user) {
+                // 3. Create a new user
+                $user = $this->userRepository->create([
+                    'name' => $socialUser->getName() ?? $socialUser->getNickname() ?? 'Social User',
+                    'username' => str_replace(' ', '', strtolower($socialUser->getName() ?? 'user' . rand(100, 999))),
+                    'email' => $socialUser->getEmail(),
+                    'provider' => $provider,
+                    'provider_id' => $socialUser->getId(),
+                    'provider_token' => $socialUser->token,
+                    'email_verified_at' => now(),
+                    'password' => null, // Password can be null for social users
+                ]);
+
+                $user->assignRole('user'); // Default role
+            } else {
+                // 4. Update existing user with social info
+                $this->userRepository->update($user->id, [
+                    'provider' => $provider,
+                    'provider_id' => $socialUser->getId(),
+                    'provider_token' => $socialUser->token,
+                ]);
+            }
+        }
+
+        // 5. Generate Token
+        $token = auth('api')->login($user);
+
+        return [
+            'user' => $user,
+            'token' => $token,
+            'token_type' => 'bearer',
+            'expires_in' => auth('api')->factory()->getTTL() * 60,
+        ];
     }
 
     public function updateProfile(User $user, array $data): void

@@ -1,21 +1,40 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Auth\AuthController;
-use App\Http\Controllers\Api\V1\Product\ProductController;
-use Illuminate\Http\Request;
+// [GEN-IMPORTS]
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v1')->group(function () {
-    // Public routes
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login', [AuthController::class, 'login']);
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+*/
 
-    // Protected routes (JWT)
-    Route::middleware('auth:api')->group(function () {
-        Route::get('/me', [AuthController::class, 'me']);
-        Route::post('/logout', [AuthController::class, 'logout']);
-        Route::post('/refresh', [AuthController::class, 'refresh']);
+Route::middleware(['set.locale'])->group(function () {
+
+    // Auth Routes
+    // Social Authentication
+    Route::get('{provider}/redirect', [AuthController::class, 'socialRedirect']);
+    Route::get('{provider}/callback', [AuthController::class, 'socialCallback']);
+
+    // Register
+    Route::post('register', [AuthController::class, 'register']);
+    // Login
+    Route::post('login', [AuthController::class, 'login']);
+    Route::prefix('auth')->group(function () {
+        Route::middleware('auth:api')->group(function () {
+            Route::get('me', [AuthController::class, 'me']);
+            Route::post('logout', [AuthController::class, 'logout']);
+        });
     });
 
+    // Client Routes (Public / Protected API)
+    Route::prefix('v1')->group(function () {
+        // [GEN-CLIENT-ROUTES]
+    });
+
+    // Admin Management Routes
+    Route::prefix('admin')->middleware(['auth:api', 'role:admin'])->group(function () {
+        // [GEN-ADMIN-ROUTES]
+    });
 });
-Route::apiResource('products', ProductController::class);

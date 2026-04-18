@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Auth;
+namespace App\Services\Api\V1\Auth;
 
 use App\Events\UserRegistered;
 use App\Repositories\User\Contracts\UserRepositoryInterface;

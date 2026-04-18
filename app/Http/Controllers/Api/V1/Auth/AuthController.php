@@ -114,4 +114,38 @@ class AuthController extends Controller
             'message' => 'Profile updated successfully',
         ]);
     }
+
+    /**
+     * Redirect the user to the social provider authentication page.
+     */
+    public function socialRedirect(string $provider): JsonResponse
+    {
+        $url = \Laravel\Socialite\Facades\Socialite::driver($provider)
+            ->stateless()
+            ->redirect()
+            ->getTargetUrl();
+
+        return response()->json(['url' => $url]);
+    }
+
+    /**
+     * Obtain the user information from the social provider.
+     */
+    public function socialCallback(string $provider): JsonResponse
+    {
+        try {
+            $socialUser = \Laravel\Socialite\Facades\Socialite::driver($provider)->stateless()->user();
+            
+            $result = $this->authService->handleSocialLogin($provider, $socialUser);
+
+            return response()->json([
+                'user' => new UserResource($result['user']),
+                'token' => $result['token'],
+                'token_type' => $result['token_type'],
+                'expires_in' => $result['expires_in'],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Social login failed: ' . $e->getMessage()], 400);
+        }
+    }
 }

@@ -4,14 +4,14 @@ namespace {{Namespace}};
 
 use Illuminate\Http\Resources\Json\ResourceCollection;
 
-class {{Class}}Collection extends ResourceCollection
+class {{Class}} extends ResourceCollection
 {
     /**
      * The resource that this resource collects.
      *
      * @var string
      */
-    public $collects = {{Class}}Resource::class;
+    public $collects = {{Resource}}::class;
 
     /**
      * Transform the resource collection into an array.

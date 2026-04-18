@@ -75,8 +75,9 @@ class SmartCrudCommand extends Command
         $this->generateFactory();
         $this->generateTest();
 
-        // Controller (wires everything together)
-        $this->generateController();
+        // Controllers (wires everything together)
+        $this->generateController('Admin');
+        $this->generateController('Client');
 
         // Optional extras
         if ($this->option('with-notification')) {
@@ -117,18 +118,18 @@ class SmartCrudCommand extends Command
     }
 
     /**
-     * Api/V1/{Module} sub-path for controllers, requests, resources.
+     * Api/V1/{Type} or Api/V1/{Model} sub-path.
      */
-    protected function getApiSubPath(): string
+    protected function getApiSubPath(?string $type = null): string
     {
-        $base = $this->module ? "Api/V1/{$this->module}" : 'Api/V1';
-        return "{$base}/{$this->model}";
+        $base = 'Api/V1';
+        return $type ? "{$base}/{$type}" : "{$base}/{$this->model}";
     }
 
-    protected function getApiSubNamespace(): string
+    protected function getApiSubNamespace(?string $type = null): string
     {
-        $base = $this->module ? "Api\\V1\\{$this->module}" : 'Api\\V1';
-        return "{$base}\\{$this->model}";
+        $base = 'Api\\V1';
+        return $type ? "{$base}\\{$type}" : "{$base}\\{$this->model}";
     }
 
     // ──────────────────────────────────────────────────
@@ -145,15 +146,19 @@ class SmartCrudCommand extends Command
 
         $table     = Str::snake(Str::pluralStudly($this->model));
         $columns   = array_column($this->analyzer->getColumns($table), 'name');
-        $fillable  = array_filter($columns, function ($c) {
-            return ! in_array($c, ['id', 'created_at', 'updated_at', 'deleted_at']);
-        });
-        $fillableString = "'" . implode("', '", $fillable) . "'";
+
+        $factoryNs = $this->getBaseNamespace() . "\\Database\\Factories\\{$this->model}";
+        $factoryClass = "{$this->model}Factory";
+
+        $relData = $this->getRelationshipData($table);
 
         $replacements = [
             '{{Namespace}}'         => $namespace,
             '{{Class}}'             => $this->model,
-            '{{Fillable}}'          => $fillableString,
+            '{{FactoryImport}}'     => "use {$factoryNs}\\{$factoryClass};",
+            '{{FactoryDoc}}'        => "/** @use HasFactory<{$factoryClass}> */",
+            '{{RelationshipImports}}' => $relData['imports'],
+            '{{Relationships}}'     => $relData['methods'],
             '{{SoftDeletesImport}}' => $this->option('soft-delete')
                 ? 'use Illuminate\\Database\\Eloquent\\SoftDeletes;'
                 : '',
@@ -171,10 +176,31 @@ class SmartCrudCommand extends Command
             '{{TranslationTrait}}'  => $this->option('translatable') ? ', HasTranslations' : '',
             '{{TranslatableFields}}' => $this->getTranslatableFields(),
             '{{EnterpriseTraits}}'  => $this->getEnterpriseTraits(),
-            '{{FactoryMethod}}'     => $this->getFactoryMethod($namespace),
         ];
 
         $this->createFile($path, $stub, $replacements);
+    }
+
+    protected function getRelationshipData(string $table): array
+    {
+        $relationships = $this->analyzer->identifyRelationships($table);
+        $methods = [];
+        $imports = [];
+
+        foreach ($relationships['belongsTo'] as $rel) {
+            $imports[] = "use Illuminate\\Database\\Eloquent\\Relations\\BelongsTo;";
+            $methods[] = "    public function {$rel['method']}(): BelongsTo\n    {\n        return \$this->belongsTo({$rel['model']}::class, '{$rel['foreign_key']}', '{$rel['owner_key']}');\n    }\n";
+        }
+
+        foreach ($relationships['hasMany'] as $rel) {
+            $imports[] = "use Illuminate\\Database\\Eloquent\\Relations\\HasMany;";
+            $methods[] = "    public function {$rel['method']}(): HasMany\n    {\n        return \$this->hasMany({$rel['model']}::class, '{$rel['foreign_key']}', '{$rel['local_key']}');\n    }\n";
+        }
+
+        return [
+            'methods' => implode("\n", $methods),
+            'imports' => implode("\n", array_unique($imports)),
+        ];
     }
 
     protected function getFactoryMethod(string $namespace): string
@@ -327,43 +353,52 @@ class SmartCrudCommand extends Command
         $stub = File::get(__DIR__ . '/../../stubs/collection.stub');
         $this->createFile($path, $stub, [
             '{{Namespace}}' => $namespace,
-            '{{Class}}'     => $this->model,
+            '{{Class}}'     => "{$this->model}Collection",
+            '{{Resource}}'  => "{$this->model}Resource",
         ]);
     }
 
-    protected function generateController(): void
+    protected function generateController(string $type = 'Admin'): void
     {
-        $basePath  = $this->getBasePath();
-        $subPath   = $this->getApiSubPath();
-        $subNs     = $this->getApiSubNamespace();
-        $namespace = $this->getBaseNamespace() . "\\Http\\Controllers\\{$subNs}";
-        $path      = "{$basePath}/Http/Controllers/{$subPath}/{$this->model}Controller.php";
+        $basePath     = $this->getBasePath();
+        $baseNs       = $this->getBaseNamespace();
+        $subNs        = "{$baseNs}\\Http\\Controllers\\" . $this->getApiSubNamespace($type);
+        $subPath      = "Api/V1/{$type}";
+        $path         = "{$basePath}/Http/Controllers/{$subPath}/{$this->model}Controller.php";
+        
+        $stubFile     = $type === 'Client' ? 'controller.client.stub' : 'controller.api.stub';
+        $stub         = File::get(__DIR__ . "/../../stubs/{$stubFile}");
 
-        $serviceContractNs    = $this->getBaseNamespace() . "\\Services\\{$this->model}\\Contracts";
-        $repositoryContractNs = $this->getBaseNamespace() . "\\Repositories\\{$this->model}\\Contracts";
-        $resourceNs           = $this->getBaseNamespace() . "\\Http\\Resources\\{$subNs}";
-        $storeRequestNs       = $this->getBaseNamespace() . "\\Http\\Requests\\{$subNs}";
-        $dataNs               = $this->getBaseNamespace() . "\\DTOs\\{$this->model}";
+        $requestPath  = $this->getApiSubNamespace(); // Api\V1\{Model}
+        $storeRequestNs    = "{$baseNs}\\Http\\Requests\\{$requestPath}";
+        $resourceNs        = "{$baseNs}\\Http\\Resources\\{$requestPath}";
+        $serviceContractNs = "{$baseNs}\\Services\\{$this->model}\\Contracts";
+        $dataNs            = "{$baseNs}\\DTOs\\{$this->model}";
 
-        $stub = File::get(__DIR__ . '/../../stubs/controller.api.stub');
-
-        $this->createFile($path, $stub, [
-            '{{Namespace}}'          => $namespace,
+        $replacements = [
+            '{{Namespace}}'          => $subNs,
             '{{ModelClass}}'         => $this->model,
-            '{{ModelPath}}'          => $this->getBaseNamespace() . "\\Models\\{$this->model}",
+            '{{ModelPath}}'          => "{$baseNs}\\Models\\{$this->model}",
             '{{ModelVariable}}'      => Str::camel($this->model),
             '{{ServiceContractPath}}' => $serviceContractNs,
-            '{{StoreRequestImport}}' => "use {$storeRequestNs}\\Store{$this->model}Request;",
-            '{{UpdateRequestImport}}' => "use {$storeRequestNs}\\Update{$this->model}Request;",
-            '{{StoreRequestClass}}'  => "Store{$this->model}Request",
-            '{{UpdateRequestClass}}' => "Update{$this->model}Request",
             '{{ResourceImport}}'     => "use {$resourceNs}\\{$this->model}Resource;",
             '{{CollectionImport}}'   => "use {$resourceNs}\\{$this->model}Collection;",
             '{{ResourceClass}}'      => "{$this->model}Resource",
             '{{CollectionClass}}'    => "{$this->model}Collection",
             '{{Class}}'              => "{$this->model}Controller",
-            '{{DataImport}}'         => "use {$dataNs}\\{$this->model}Data;",
-        ]);
+        ];
+
+        if ($type !== 'Client') {
+            $replacements = array_merge($replacements, [
+                '{{StoreRequestImport}}' => "use {$storeRequestNs}\\Store{$this->model}Request;",
+                '{{UpdateRequestImport}}' => "use {$storeRequestNs}\\Update{$this->model}Request;",
+                '{{StoreRequestClass}}'  => "Store{$this->model}Request",
+                '{{UpdateRequestClass}}' => "Update{$this->model}Request",
+                '{{DataImport}}'         => "use {$dataNs}\\{$this->model}Data;",
+            ]);
+        }
+
+        $this->createFile($path, $stub, $replacements);
     }
 
     // ──────────────────────────────────────────────────
@@ -580,24 +615,40 @@ class SmartCrudCommand extends Command
             ? base_path("Modules/{$this->module}/Routes/api.php")
             : base_path('routes/api.php');
 
-        // Create module route file if it doesn't exist
         if (! File::exists($routeFile)) {
-            $dir = dirname($routeFile);
-            if (! File::exists($dir)) {
-                File::makeDirectory($dir, 0755, true);
-            }
-            File::put($routeFile, "<?php\n\nuse Illuminate\\Support\\Facades\\Route;\n");
+            return;
         }
 
-        $subNs          = $this->getApiSubNamespace();
-        $controllerNs   = $this->getBaseNamespace() . "\\Http\\Controllers\\{$subNs}";
-        $controllerClass = "{$this->model}Controller";
-        $routeName       = Str::kebab(Str::plural($this->model));
+        $content = File::get($routeFile);
 
-        $routeLine = "\nRoute::apiResource('{$routeName}', \\{$controllerNs}\\{$controllerClass}::class);";
+        $baseNs = $this->getBaseNamespace();
+        $adminNs = "{$baseNs}\\Http\\Controllers\\" . $this->getApiSubNamespace('Admin');
+        $clientNs = "{$baseNs}\\Http\\Controllers\\" . $this->getApiSubNamespace('Client');
+        
+        $adminClass  = "Admin{$this->model}Controller";
+        $clientClass = "Client{$this->model}Controller";
+        $routeName   = Str::kebab(Str::plural($this->model));
 
-        File::append($routeFile, $routeLine);
-        $this->info("  ✓ Route registered in: {$routeFile}");
+        // 1. Add Imports
+        $imports = "use {$adminNs}\\{$this->model}Controller as {$adminClass};\nuse {$clientNs}\\{$this->model}Controller as {$clientClass};\n// [GEN-IMPORTS]";
+        if (! Str::contains($content, "as {$adminClass}")) {
+            $content = str_replace('// [GEN-IMPORTS]', $imports, $content);
+        }
+
+        // 2. Add Client Route
+        $clientRoute = "Route::apiResource('{$routeName}', {$clientClass}::class)->only(['index', 'show']);\n        // [GEN-CLIENT-ROUTES]";
+        if (! Str::contains($content, "'{$routeName}', {$clientClass}::class")) {
+            $content = str_replace('// [GEN-CLIENT-ROUTES]', $clientRoute, $content);
+        }
+
+        // 3. Add Admin Route
+        $adminRoute = "Route::apiResource('{$routeName}', {$adminClass}::class);\n        // [GEN-ADMIN-ROUTES]";
+        if (! Str::contains($content, "'{$routeName}', {$adminClass}::class")) {
+            $content = str_replace('// [GEN-ADMIN-ROUTES]', $adminRoute, $content);
+        }
+
+        File::put($routeFile, $content);
+        $this->info("  ✓ Routes registered in: {$routeFile}");
     }
 
     // ──────────────────────────────────────────────────
@@ -664,10 +715,19 @@ class SmartCrudCommand extends Command
             File::makeDirectory($directory, 0755, true);
         }
 
+        $table = Str::snake(Str::pluralStudly($this->model));
+
         $defaultReplacements = [
             '{{ModelClass}}' => $this->model,
             '{{Model}}'      => $this->model,
             '{{Module}}'     => $this->module ?? '',
+            '{{IdType}}'     => $this->analyzer->isUuidPrimaryKey($table) ? 'string' : 'int',
+            '{{UUIDsImport}}' => $this->analyzer->isUuidPrimaryKey($table)
+                ? "use Illuminate\\Database\\Eloquent\\Concerns\\HasUuids;"
+                : '',
+            '{{UUIDsTrait}}'  => $this->analyzer->isUuidPrimaryKey($table)
+                ? ', HasUuids'
+                : '',
         ];
 
         $replacements = array_merge($defaultReplacements, $replacements);

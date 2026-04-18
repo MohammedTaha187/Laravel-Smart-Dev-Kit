@@ -1,136 +1,107 @@
-# 🚀 Laravel Smart Dev Kit (Easy Dev)
+# 🚀 Easy Dev SDK for Laravel
 
-A powerful, production-ready SDK for rapid Laravel API development. This kit follows the **Interface-Service-Repository** architecture and automates the creation of 11+ essential files per CRUD module.
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/muhammad/easy-dev.svg?style=for-the-badge)](https://packagist.org/packages/muhammad/easy-dev)
+[![Total Downloads](https://img.shields.io/packagist/dt/muhammad/easy-dev.svg?style=for-the-badge)](https://packagist.org/packages/muhammad/easy-dev)
+[![License](https://img.shields.io/packagist/l/muhammad/easy-dev.svg?style=for-the-badge)](https://packagist.org/packages/muhammad/easy-dev)
+[![PHP Version](https://img.shields.io/badge/PHP-8.3%2B-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://php.net)
+[![Laravel Version](https://img.shields.io/badge/Laravel-11%2F12%2F13-FF2D20?style=for-the-badge&logo=laravel&logoColor=white)](https://laravel.com)
 
----
-
-## ✨ Features
-
-- **Standard & Industrial Modes**: Choose between a monolithic or modular architecture.
-- **Automated CRUD Generation**: Models, Migrations, Controllers, Services, Repositories, DTOs, and more.
-- **Smart Data Syncing**: Instantly update your code after database schema changes.
-- **Docker Ready**: Fully compatible with Laravel Sail.
-- **Clean Architecture**: Strict separation of concerns for maintainable enterprise code.
+**Easy Dev SDK** is a powerful, automation-focused toolkit designed to accelerate Laravel API development by 10x. It eliminates boilerplate by generating high-quality, production-ready code structures following strict Clean Architecture principles.
 
 ---
 
-## 🛠️ Environment Support
+## 🏗️ Architecture Flow
 
-### 💻 Local Development
-If you are running PHP/Laravel directly on your machine:
-```bash
-php artisan smart:crud ModelName
-```
+The SDK enforces a professional multi-layered architecture for every feature:
 
-### 🐳 Docker (Laravel Sail)
-If you are using the official Docker setup:
-```bash
-./vendor/bin/sail artisan smart:crud ModelName
-```
-
----
-
-## 🏗️ Choice of Architecture
-
-### 1. Standard Mode (Monolithic)
-Ideal for small-to-medium projects. Files are placed in the standard `app/` directory with our premium nested organization.
-```bash
-# Example
-php artisan smart:crud Product
-```
-
-### 2. Industrial Mode (Modular)
-Designed for large-scale enterprise apps (like big tech companies). Encapsulates each feature into a self-contained module.
-```bash
-# Example
-php artisan smart:crud Product --module=Catalog
+```mermaid
+graph TD
+    A[Request] --> B[Controller]
+    B --> C[DTO - Spatie Data]
+    C --> D[Service Interface]
+    D --> E[Service Implementation]
+    E --> F[Repository Interface]
+    F --> G[Repository Implementation]
+    G --> H[Model]
+    H --> I[API Resource]
 ```
 
 ---
 
-## 🛠️ Step-by-Step Implementation Guide
+## 🚀 Key Features
 
-Follow this guide to build a professional **Product** module with automated image and video handling.
+- **Standardized CRUD Generation**: Generate Model, Migration, Controller, DTO, Service, Repository, Policy, and Pest tests in one command.
+- **Modern Model Standards**: Uses Laravel 13 `#[Guarded]` attributes and PHPDoc-based factory discovery.
+- **Smart UUID Support**: Automatically detects UUID primary keys and configures `HasUuids` traits and string type-hinting.
+- **Smart Validation**: Automatically detects database column types and generates validation rules.
+- **Automated Relationship Discovery**: Scans DB constraints to write `belongsTo` and `hasMany` methods automatically.
+- **Modular Support**: Full integration with `nwidart/laravel-modules`.
 
-### 1️⃣ Phase 1: Database Design
-Create your migration: `php artisan make:migration create_products_table`.  
-Use **Media-Aware** naming conventions (`*_image`, `*_video`, `*_file`, `*_url`) for automatic handling:
+---
 
-```php
-Schema::create('products', function (Blueprint $table) {
-    $table->id();
-    $table->string('name');
-    $table->decimal('price', 10, 2);
-    $table->string('thumbnail_image'); // Treated as Image (Upload)
-    $table->string('demo_video');      // Treated as Video (Upload)
-    $table->string('catalog_pdf');    // Treated as Document (Upload)
-    $table->string('official_url');    // Treated as external URL
-    $table->timestamps();
-});
-```
+## ✨ Recent Updates (v2.0)
 
-### 2️⃣ Phase 2: Generation
-Run the smart command to generate all 11 enterprise layers:
+- **Laravel 13 & PHP 8.4 Ready**: Full support for the latest framework features.
+- **Mass Assignment Refactor**: Replaced `$fillable` with `#[Guarded(['id', ...])]` attribute.
+- **Factory Discovery**: Removed `newFactory()` boilerplate; uses modern `@use HasFactory<ModelFactory>` pattern.
+- **Global ID Type-Hinting**: Automatic switching between `int` and `string` for Service/Repository methods based on PK.
+
+---
+
+## 🛠️ Installation
+
 ```bash
-php artisan smart:crud Product --module=Catalog
+composer require muhammad/easy-dev --dev
 ```
 
-### 3️⃣ Phase 3: Deployment
-Run the migration and link the storage to make your media public:
+Publish the configuration and stubs:
+
 ```bash
-php artisan migrate
-php artisan storage:link
-```
-
-### 4️⃣ Phase 4: Verification
-Your API is now ready! 
-- **Upload**: Send a `POST` request with `multipart/form-data`. The `ProductService` will automatically store the files.
-- **Response**: The `ProductResource` will automatically return full public URLs:
-```json
-{
-    "id": 1,
-    "name": "Super Widget",
-    "thumbnail_image": "https://yourdomain.com/storage/products/xyz.jpg",
-    "demo_video": "https://yourdomain.com/storage/products/abc.mp4",
-    "official_url": "https://google.com"
-}
+php artisan vendor:publish --tag="easy-dev-config"
+php artisan vendor:publish --tag="easy-dev-stubs"
 ```
 
 ---
 
-## 🔄 Syncing Database Changes
+## 📖 Usage
 
-When you update your database (e.g., adding a new column to a migration), follow these steps to **Sync** your code automatically:
-
-1.  **Update Migration**: Add your new columns to the migration file.
-2.  **Run Migrate**: `php artisan migrate`
-3.  **Run Sync Command**:
-    ```bash
-    php artisan smart:from-migration table_name --force
-    ```
-    > [!TIP]
-    > Using the `--force` flag will automatically update your **StoreRequest**, **UpdateRequest**, and **Resource** with the new database columns without asking for confirmation.
-
----
-
-## 📖 Installation & Setup
+### 1. Generate a Professional CRUD
+Generate a complete feature set for a "Product" model (and create a migration):
 
 ```bash
-composer install
-cp .env.example .env
-php artisan key:generate
-php artisan migrate --seed
+php artisan smart:crud Product --module=Ecommerce
+```
+
+### 2. Generate from Existing Migration
+Build an entire feature based on an existing database table (Auto-detects columns and relationships):
+
+```bash
+php artisan smart:from-migration products
+```
+
+### 3. Sync Relationships
+Automatically detect database relationships for ALL existing models:
+
+```bash
+php artisan smart:sync-relations
 ```
 
 ---
 
 ## 🧪 Testing
 
+The SDK is built with **Pest** in mind. Every generated feature comes with a comprehensive Pest test suite ready to run:
+
 ```bash
-./vendor/bin/sail artisan test
+php artisan test
 ```
 
 ---
 
-## 🤝 Contribution & License
-Developed by **Muhammad Taha**. Licensed under the **MIT License**.
+## 👨‍💻 Author
+
+**Muhammad Taha**  
+*Backend Developer & Cloud Architect*
+
+---
+*Built with ❤️ for the Laravel Community.*

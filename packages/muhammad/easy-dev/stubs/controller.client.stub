@@ -1,0 +1,46 @@
+<?php
+
+namespace {{Namespace}};
+
+use App\Http\Controllers\Controller;
+use {{ServiceContractPath}}\{{ModelClass}}ServiceInterface;
+use {{ModelPath}};
+{{ResourceImport}}
+{{CollectionImport}}
+use Illuminate\Http\JsonResponse;
+
+/**
+ * @group {{ModelClass}} Client API
+ *
+ * APIs for viewing {{ModelClass}}s
+ */
+class {{Class}} extends Controller
+{
+    public function __construct(
+        private readonly {{ModelClass}}ServiceInterface $service
+    ) {}
+
+    /**
+     * Display a listing of the resource.
+     */
+    public function index(): JsonResponse
+    {
+        $items = $this->service->getAll();
+
+        return $this->successResponse(
+            {{CollectionClass}}::make($items),
+            '{{ModelClass}} list retrieved.'
+        );
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show({{ModelClass}} ${{ModelVariable}}): JsonResponse
+    {
+        return $this->successResponse(
+            new {{ResourceClass}}(${{ModelVariable}}),
+            '{{ModelClass}} retrieved.'
+        );
+    }
+}

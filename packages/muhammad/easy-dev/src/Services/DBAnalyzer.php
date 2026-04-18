@@ -80,6 +80,21 @@ class DBAnalyzer
     }
 
     /**
+     * Check if the table uses UUID as a primary key.
+     */
+    public function isUuidPrimaryKey(string $table): bool
+    {
+        $columns = $this->getColumns($table);
+        foreach ($columns as $column) {
+            if ($column['name'] === 'id') {
+                $type = strtolower($column['type'] ?? '');
+                return Str::contains($type, ['char(36)', 'uuid']);
+            }
+        }
+        return false;
+    }
+
+    /**
      * Get columns of a table.
      */
     public function getColumns(string $table): array

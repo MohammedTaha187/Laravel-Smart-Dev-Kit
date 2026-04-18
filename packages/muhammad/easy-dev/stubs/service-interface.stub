@@ -10,11 +10,11 @@ interface {{ModelClass}}ServiceInterface
 {
     public function getAll(): Collection;
 
-    public function getById(int $id): ?{{ModelClass}};
+    public function getById({{IdType}} $id): ?{{ModelClass}};
 
     public function create({{ModelClass}}Data $data): {{ModelClass}};
 
-    public function update(int $id, {{ModelClass}}Data $data): bool;
+    public function update({{IdType}} $id, {{ModelClass}}Data $data): bool;
 
-    public function delete(int $id): bool;
+    public function delete({{IdType}} $id): bool;
 }

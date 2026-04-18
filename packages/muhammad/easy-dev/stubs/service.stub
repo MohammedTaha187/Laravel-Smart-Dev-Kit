@@ -20,7 +20,7 @@ class {{Class}} implements {{ModelClass}}ServiceInterface
         return $this->repo->all();
     }
 
-    public function getById(int $id): ?{{ModelClass}}
+    public function getById({{IdType}} $id): ?{{ModelClass}}
     {
         return $this->repo->find($id);
     }
@@ -33,7 +33,7 @@ class {{Class}} implements {{ModelClass}}ServiceInterface
         return $this->repo->create($payload);
     }
 
-    public function update(int $id, {{ModelClass}}Data $data): bool
+    public function update({{IdType}} $id, {{ModelClass}}Data $data): bool
     {
         $payload = $data->toArray();
         {{FileUpdateLogic}}
@@ -41,7 +41,7 @@ class {{Class}} implements {{ModelClass}}ServiceInterface
         return $this->repo->update($id, $payload);
     }
 
-    public function delete(int $id): bool
+    public function delete({{IdType}} $id): bool
     {
         return $this->repo->delete($id);
     }

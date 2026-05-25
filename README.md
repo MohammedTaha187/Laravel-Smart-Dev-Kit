@@ -45,6 +45,7 @@ graph TD
 - **Mass Assignment Refactor**: Replaced `$fillable` with `#[Guarded(['id', ...])]` attribute.
 - **Factory Discovery**: Removed `newFactory()` boilerplate; uses modern `@use HasFactory<ModelFactory>` pattern.
 - **Global ID Type-Hinting**: Automatic switching between `int` and `string` for Service/Repository methods based on PK.
+- **Modular Database Support**: Database migrations and factories are now generated inside the module directory (`Modules/{Module}/database/migrations` and `Modules/{Module}/Database/Factories`) instead of global paths. Custom `newFactory()` resolves the custom namespace seamlessly.
 
 ---
 
@@ -85,6 +86,46 @@ Automatically detect database relationships for ALL existing models:
 ```bash
 php artisan smart:sync-relations
 ```
+
+---
+
+### 💡 Complete Walkthrough: Generating a Module Feature (e.g., Product)
+
+If you want to create a new `Product` feature inside an `Ecommerce` module:
+
+#### Step 1: Generate the CRUD Scaffold
+Run the generator to create all layers including the model and migration inside the module:
+```bash
+php artisan smart:crud Product --module=Ecommerce
+```
+This generates the migration file inside the module directory:
+`Modules/Ecommerce/database/migrations/xxxx_xx_xx_xxxxxx_create_products_table.php`
+
+#### Step 2: Define your Database Schema
+Open the generated migration file and define your columns, for example:
+```php
+Schema::create('products', function (Blueprint $table) {
+    $table->id();
+    $table->string('name');
+    $table->text('description')->nullable();
+    $table->decimal('price', 10, 2);
+    $table->integer('stock_qty')->default(0);
+    $table->timestamps();
+});
+```
+
+#### Step 3: Run the Migration
+Run the standard Laravel migration command (the module's ServiceProvider registers migration loading automatically):
+```bash
+php artisan migrate
+```
+
+#### Step 4: Re-Generate from Database Schema (Smart Scan)
+To automatically update your Requests validation rules, Spatie DTO properties, and Model relationships from your database columns, run:
+```bash
+php artisan smart:from-migration products --module=Ecommerce --force
+```
+This scans the active database schema and rebuilds all classes with precise types and validation rules!
 
 ---
 

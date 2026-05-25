@@ -147,8 +147,13 @@ class SmartCrudCommand extends Command
         $table     = Str::snake(Str::pluralStudly($this->model));
         $columns   = array_column($this->analyzer->getColumns($table), 'name');
 
-        $factoryNs = $this->getBaseNamespace() . "\\Database\\Factories\\{$this->model}";
-        $factoryClass = "{$this->model}Factory";
+        if ($this->module) {
+            $factoryNs = "Modules\\{$this->module}\\Database\\Factories";
+            $factoryClass = "{$this->model}Factory";
+        } else {
+            $factoryNs = $this->getBaseNamespace() . "\\Database\\Factories\\{$this->model}";
+            $factoryClass = "{$this->model}Factory";
+        }
 
         $relData = $this->getRelationshipData($table);
 
@@ -157,6 +162,7 @@ class SmartCrudCommand extends Command
             '{{Class}}'             => $this->model,
             '{{FactoryImport}}'     => "use {$factoryNs}\\{$factoryClass};",
             '{{FactoryDoc}}'        => "/** @use HasFactory<{$factoryClass}> */",
+            '{{FactoryMethod}}'     => $this->getFactoryMethod(),
             '{{RelationshipImports}}' => $relData['imports'],
             '{{Relationships}}'     => $relData['methods'],
             '{{SoftDeletesImport}}' => $this->option('soft-delete')
@@ -203,10 +209,13 @@ class SmartCrudCommand extends Command
         ];
     }
 
-    protected function getFactoryMethod(string $namespace): string
+    protected function getFactoryMethod(): string
     {
-        $factoryNs = $this->getBaseNamespace() . "\\Database\\Factories\\{$this->model}";
-        $factoryClass = "{$factoryNs}\\{$this->model}Factory";
+        if ($this->module) {
+            $factoryClass = "Modules\\{$this->module}\\Database\\Factories\\{$this->model}Factory";
+        } else {
+            $factoryClass = $this->getBaseNamespace() . "\\Database\\Factories\\{$this->model}\\{$this->model}Factory";
+        }
         
         return "\n    protected static function newFactory()\n    {\n        return \\{$factoryClass}::new();\n    }";
     }
@@ -244,17 +253,34 @@ class SmartCrudCommand extends Command
     protected function generateMigration(): void
     {
         $table = Str::snake(Str::pluralStudly($this->model));
-        $migrationExists = ! empty(glob(database_path("migrations/*create_{$table}_table.php")));
+
+        if ($this->module) {
+            $migrationPath = base_path("Modules/{$this->module}/database/migrations");
+            $migrationExists = ! empty(glob("{$migrationPath}/*create_{$table}_table.php"));
+        } else {
+            $migrationExists = ! empty(glob(database_path("migrations/*create_{$table}_table.php")));
+        }
 
         if ($migrationExists) {
             $this->warn("  ⤳ Migration already exists for table [{$table}], skipping.");
             return;
         }
 
-        $this->call('make:migration', [
+        $params = [
             'name'     => "create_{$table}_table",
             '--create' => $table,
-        ]);
+        ];
+
+        if ($this->module) {
+            $migrationPath = base_path("Modules/{$this->module}/database/migrations");
+            if (! File::exists($migrationPath)) {
+                File::makeDirectory($migrationPath, 0755, true);
+            }
+            $params['--path'] = $migrationPath;
+            $params['--realpath'] = true;
+        }
+
+        $this->call('make:migration', $params);
 
         if ($this->option('soft-delete')) {
             $this->warn("  ⚠ Remember to add \$table->softDeletes(); to your migration.");
@@ -570,9 +596,15 @@ class SmartCrudCommand extends Command
 
     protected function generateFactory(): void
     {
-        $basePath  = $this->getBasePath();
-        $namespace = $this->getBaseNamespace() . "\\Database\\Factories\\{$this->model}";
-        $path      = "{$basePath}/Database/Factories/{$this->model}/{$this->model}Factory.php";
+        $basePath = $this->getBasePath();
+
+        if ($this->module) {
+            $namespace = "Modules\\{$this->module}\\Database\\Factories";
+            $path      = "{$basePath}/Database/Factories/{$this->model}Factory.php";
+        } else {
+            $namespace = $this->getBaseNamespace() . "\\Database\\Factories\\{$this->model}";
+            $path      = "{$basePath}/Database/Factories/{$this->model}/{$this->model}Factory.php";
+        }
 
         $stub = File::get(__DIR__ . '/../../stubs/factory.stub');
         $this->createFile($path, $stub, [

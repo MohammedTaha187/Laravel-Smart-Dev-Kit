@@ -18,7 +18,8 @@ class {{Class}} extends Model {{MediaImplements}}
     {{FactoryDoc}}
     use HasFactory{{UUIDsTrait}}{{SoftDeletesTrait}}{{MediaTrait}}{{TranslationTrait}};
 
-    
+    {{FactoryMethod}}
+
     {{Relationships}}
 
     {{TranslatableFields}}

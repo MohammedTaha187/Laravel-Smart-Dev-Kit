@@ -49,6 +49,44 @@ graph TD
 
 ---
 
+## 🚀 Getting Started & Local Setup
+
+If you are downloading this repository for the first time, follow these steps to set up your local development environment:
+
+### 1. Run the Automated Setup
+The project includes a pre-configured Composer script that installs all dependencies (PHP & NPM), copies the environment configuration, generates the app key, runs database migrations, and builds assets automatically:
+```bash
+composer run setup
+```
+
+### 2. Manual Setup (Alternative)
+If you prefer to run the setup steps manually:
+```bash
+# Install PHP dependencies
+composer install
+
+# Set up the environment file
+cp .env.example .env
+
+# Generate application key
+php artisan key:generate
+
+# Run database migrations
+php artisan migrate
+
+# Install Node dependencies and build assets
+npm install
+npm run build
+```
+
+### 3. Run the Development Server
+To launch the development server, run:
+```bash
+npm run dev
+```
+
+---
+
 ## 🛠️ Installation
 
 ```bash
